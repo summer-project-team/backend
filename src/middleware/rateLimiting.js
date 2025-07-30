@@ -20,13 +20,17 @@ const createRateLimiter = (maxRequests = 60, windowMinutes = 15, message = 'Too 
 };
 
 // Pre-configured rate limiters for different endpoints
+const apiLimiter = createRateLimiter(100, 15, 'Too many API requests, please try again after 15 minutes');
 const authLimiter = createRateLimiter(10, 15, 'Too many authentication attempts, please try again after 15 minutes');
 const transactionLimiter = createRateLimiter(30, 15, 'Too many transaction requests, please try again after 15 minutes');
 const lookupLimiter = createRateLimiter(20, 15, 'Too many lookup requests, please try again after 15 minutes');
+const ussdLimiter = createRateLimiter(50, 15, 'Too many USSD requests, please try again after 15 minutes');
 
 module.exports = {
   createRateLimiter,
+  apiLimiter,
   authLimiter,
   transactionLimiter,
   lookupLimiter,
+  ussdLimiter,
 }; 

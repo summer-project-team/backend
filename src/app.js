@@ -106,6 +106,25 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Health check endpoints
 app.use('/health', healthRoutes);
 
+console.log('=== DEBUGGING ROUTERS ===');
+console.log('authRoutes:', typeof authRoutes);
+console.log('userRoutes:', typeof userRoutes);
+console.log('aliasRoutes:', typeof aliasRoutes);
+console.log('transactionRoutes:', typeof transactionRoutes);
+console.log('bankingRoutes:', typeof bankingRoutes);
+console.log('cbusdRoutes:', typeof cbusdRoutes);
+console.log('systemRoutes:', typeof systemRoutes);
+console.log('analyticsRoutes:', typeof analyticsRoutes);
+console.log('bankIntegrationRoutes:', typeof bankIntegrationRoutes);
+console.log('ussdRoutes:', typeof ussdRoutes);
+console.log('liquidityRoutes:', typeof liquidityRoutes);
+console.log('mlRoutes:', typeof mlRoutes);
+console.log('securityRoutes:', typeof securityRoutes);
+console.log('websocketRoutes:', typeof websocketRoutes);
+console.log('walletRoutes:', typeof walletRoutes);
+console.log('dashboardRoutes:', typeof dashboardRoutes);
+console.log('=== END ROUTER DEBUG ===');
+
 // Rate limiting
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
@@ -126,14 +145,8 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Apply rate limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', apiLimiter);
+// Rate limiting is already applied from middleware/rateLimiting.js
+// We don't need to define it again here
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -147,6 +160,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); // Updated to users plural for consistency
 app.use('/api/users', aliasRoutes); // Alias routes for backward compatibility

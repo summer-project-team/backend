@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { auth, isAdmin } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 const { Transaction } = require('../models/Transaction');
 const { User } = require('../models/User');
 const { Wallet } = require('../models/Wallet');
@@ -14,7 +14,7 @@ const { Wallet } = require('../models/Wallet');
  *     security:
  *       - bearerAuth: []
  */
-router.get('/dashboard', auth, isAdmin, async (req, res) => {
+router.get('/dashboard', restrictTo('admin'), async (req, res) => {
   try {
     const now = new Date();
     const todayStart = new Date(now.setHours(0, 0, 0, 0));
@@ -70,7 +70,7 @@ router.get('/dashboard', auth, isAdmin, async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-router.get('/users', auth, isAdmin, async (req, res) => {
+router.get('/users', protect, restrictTo('admin'), async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
@@ -107,7 +107,7 @@ router.get('/users', auth, isAdmin, async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-router.get('/transactions', auth, isAdmin, async (req, res) => {
+router.get('/transactions', protect, restrictTo('admin'), async (req, res) => {
   try {
     const {
       page = 1,
