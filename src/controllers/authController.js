@@ -19,7 +19,7 @@ const asyncHandler = require('express-async-handler');
  * @access  Public
  */
 const register = asyncHandler(async (req, res, next) => {
-  const { phone_number, country_code, email, password } = req.body;
+  const { phone_number, country_code, email, password, first_name, last_name } = req.body;
   
   // Validate phone number
   const phoneValidation = validatePhoneNumber(phone_number, country_code);
@@ -45,6 +45,8 @@ const register = asyncHandler(async (req, res, next) => {
     country_code,
     email,
     password,
+    first_name,
+    last_name,
   });
   
   // Generate wallet address
