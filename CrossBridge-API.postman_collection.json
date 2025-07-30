@@ -1,0 +1,2328 @@
+{
+  "info": {
+    "name": "CrossBridge API",
+    "description": "Comprehensive API collection for CrossBridge money transfer platform with authentication, CBUSD operations, banking integration, and admin features.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "apiSecret",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "if (pm.request.headers.get('Authorization') === null && pm.collectionVariables.get('authToken')) {",
+          "    pm.request.headers.add({",
+          "        key: 'Authorization',",
+          "        value: 'Bearer ' + pm.collectionVariables.get('authToken')",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "description": "User registration, login, verification, and token management",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"country_code\": \"NG\",\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success and user_id', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.user_id).to.exist;",
+                  "    pm.collectionVariables.set('userId', jsonData.user_id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"country_code\": \"NG\",\n  \"verification_code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-phone",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-phone"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has tokens', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.exist;",
+                  "    pm.expect(jsonData.refresh_token).to.exist;",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"country_code\": \"NG\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has tokens and user data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.exist;",
+                  "    pm.expect(jsonData.refresh_token).to.exist;",
+                  "    pm.expect(jsonData.user).to.exist;",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "    pm.collectionVariables.set('userId', jsonData.user.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has new tokens', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.exist;",
+                  "    pm.expect(jsonData.refresh_token).to.exist;",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Logout successful', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.message).to.include('Logged out');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👤 User Management",
+      "description": "User profile, wallet, and lookup operations",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/update-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "update-profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Wallet",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "wallet"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lookup User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"country_code\": \"NG\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/lookup",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "lookup"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Validate Phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+2348123456789\",\n  \"country_code\": \"NG\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/validate-phone",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "validate-phone"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💰 Transactions",
+      "description": "Money transfers, quotes, deposits, and withdrawals",
+      "item": [
+        {
+          "name": "Get Quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100,\n  \"currency_from\": \"NGN\",\n  \"currency_to\": \"USD\",\n  \"payment_method\": \"wallet\",\n  \"recipient_phone\": \"+2348123456790\",\n  \"recipient_country_code\": \"NG\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/quote",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "quote"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Quote has required fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.quote).to.exist;",
+                  "    pm.expect(jsonData.quote.exchange_rate).to.exist;",
+                  "    pm.expect(jsonData.quote.fee_amount).to.exist;",
+                  "    if (jsonData.quote.quote_id) {",
+                  "        pm.collectionVariables.set('quoteId', jsonData.quote.quote_id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lock Exchange Rate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quote_id\": \"{{quoteId}}\",\n  \"duration\": 300\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/lock-rate",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "lock-rate"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Rate lock successful', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.lock).to.exist;",
+                  "    if (jsonData.lock.lock_id) {",
+                  "        pm.collectionVariables.set('lockId', jsonData.lock.lock_id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Rate Lock",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/verify-lock/{{lockId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "verify-lock", "{{lockId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Money",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_phone\": \"+2348123456790\",\n  \"recipient_country_code\": \"NG\",\n  \"amount\": 100,\n  \"currency_from\": \"NGN\",\n  \"currency_to\": \"USD\",\n  \"quote_id\": \"{{quoteId}}\",\n  \"lock_id\": \"{{lockId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "send"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 202', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "pm.test('Transaction created', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.transaction).to.exist;",
+                  "    pm.expect(jsonData.transaction.id).to.exist;",
+                  "    pm.collectionVariables.set('transactionId', jsonData.transaction.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/history?limit=10&offset=0&sort_by=created_at&sort_order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "created_at"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"User requested cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}", "cancel"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Retry Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}/retry",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}", "retry"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mock Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000,\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/deposit",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "deposit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mock Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 5000,\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/withdraw",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "withdraw"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🪙 CBUSD Operations",
+      "description": "CBUSD token minting, burning, transfers, and balance operations",
+      "item": [
+        {
+          "name": "Get CBUSD Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cbusd/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["cbusd", "balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mint CBUSD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cbusd/mint",
+              "host": ["{{baseUrl}}"],
+              "path": ["cbusd", "mint"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Burn CBUSD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cbusd/burn",
+              "host": ["{{baseUrl}}"],
+              "path": ["cbusd", "burn"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transfer CBUSD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_phone\": \"+2348123456790\",\n  \"recipient_country_code\": \"NG\",\n  \"amount\": 25\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cbusd/transfer",
+              "host": ["{{baseUrl}}"],
+              "path": ["cbusd", "transfer"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏦 Banking",
+      "description": "Bank account linking, verification, and deposit operations",
+      "item": [
+        {
+          "name": "Get Bank Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/banking/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["banking", "accounts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Link Bank Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_number\": \"1234567890\",\n  \"bank_code\": \"058\",\n  \"bank_name\": \"GTBank\",\n  \"account_name\": \"John Doe\",\n  \"account_type\": \"savings\",\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/banking/link-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["banking", "link-account"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Bank account linked', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.account).to.exist;",
+                  "    if (jsonData.account.id) {",
+                  "        pm.collectionVariables.set('bankAccountId', jsonData.account.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Bank Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": \"{{bankAccountId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/banking/verify-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["banking", "verify-account"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": \"{{bankAccountId}}\",\n  \"amount\": 10000,\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+				"raw": "{{baseUrl}}/banking/verify-deposit",
+				"host": ["{{baseUrl}}"],
+				"path": ["banking", "verify-deposit"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Deposit verification successful', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.transaction).to.exist;",
+					"    pm.expect(jsonData.transaction.reference).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  }
+		]
+	  },
+	  {
+		"name": "🏦 Bank Integration",
+		"description": "Bank-to-bank integration and B2B transfer endpoints",
+		"item": [
+		  {
+			"name": "Register Bank",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				},
+				{
+				  "key": "Authorization",
+				  "value": "Bearer {{authToken}}"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"bank_name\": \"First Bank of Nigeria\",\n  \"bank_code\": \"011\",\n  \"swift_code\": \"FBNINGLA\",\n  \"country_code\": \"NG\",\n  \"api_key\": \"test_api_key_123\",\n  \"api_secret\": \"test_api_secret_456\",\n  \"integration_settings\": {\n    \"webhook_url\": \"https://bank.example.com/webhook\",\n    \"rate_limit\": 1000\n  },\n  \"supports_b2b\": true\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/register",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "register"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 201', function () {",
+					"    pm.response.to.have.status(201);",
+					"});",
+					"",
+					"pm.test('Bank registered successfully', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.bank).to.exist;",
+					"    pm.expect(jsonData.bank.id).to.exist;",
+					"    ",
+					"    // Store bank ID for later use",
+					"    pm.collectionVariables.set('bankId', jsonData.bank.id);",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Get Bank by ID",
+			"request": {
+			  "method": "GET",
+			  "header": [
+				{
+				  "key": "Authorization",
+				  "value": "Bearer {{authToken}}"
+				}
+			  ],
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/{{bankId}}",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "{{bankId}}"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Bank details retrieved', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.bank).to.exist;",
+					"    pm.expect(jsonData.bank.bank_name).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "List Banks",
+			"request": {
+			  "method": "GET",
+			  "header": [
+				{
+				  "key": "Authorization",
+				  "value": "Bearer {{authToken}}"
+				}
+			  ],
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/list",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "list"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Banks list retrieved', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.banks).to.exist;",
+					"    pm.expect(jsonData.banks).to.be.an('array');",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Get B2B Quote",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				},
+				{
+				  "key": "x-api-key",
+				  "value": "test_api_key_123"
+				},
+				{
+				  "key": "x-api-secret",
+				  "value": "test_api_secret_456"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"amount\": 100000,\n  \"source_currency\": \"NGN\",\n  \"target_currency\": \"USD\",\n  \"recipient_bank_code\": \"011\"\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/b2b-quote",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "b2b-quote"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('B2B quote generated', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.quote).to.exist;",
+					"    pm.expect(jsonData.quote.exchange_rate).to.exist;",
+					"    ",
+					"    // Store quote for B2B transfer",
+					"    pm.collectionVariables.set('b2bQuote', JSON.stringify(jsonData.quote));",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Process B2B Transfer",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				},
+				{
+				  "key": "x-api-key",
+				  "value": "test_api_key_123"
+				},
+				{
+				  "key": "x-api-secret",
+				  "value": "test_api_secret_456"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"transaction_reference\": \"TXN_{{$randomUUID}}\",\n  \"sender_bank_id\": \"011\",\n  \"recipient_bank_id\": \"058\",\n  \"sender_account\": {\n    \"account_number\": \"1234567890\",\n    \"account_name\": \"Corporate Account Ltd\"\n  },\n  \"recipient_account\": {\n    \"account_number\": \"0987654321\",\n    \"account_name\": \"Recipient Corp\",\n    \"sort_code\": \"058\"\n  },\n  \"amount\": 100000,\n  \"source_currency\": \"NGN\",\n  \"target_currency\": \"USD\",\n  \"purpose\": \"Business payment\",\n  \"memo\": \"Invoice payment for services\",\n  \"callback_url\": \"https://example.com/webhook\",\n  \"rate_lock_duration\": 60,\n  \"is_test\": true\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/b2b-transfer",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "b2b-transfer"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('B2B transfer initiated', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.transfer).to.exist;",
+					"    pm.expect(jsonData.transfer.id).to.exist;",
+					"    ",
+					"    // Store transfer ID for status check",
+					"    pm.collectionVariables.set('b2bTransferId', jsonData.transfer.id);",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Get Transfer Status",
+			"request": {
+			  "method": "GET",
+			  "header": [
+				{
+				  "key": "x-api-key",
+				  "value": "test_api_key_123"
+				},
+				{
+				  "key": "x-api-secret",
+				  "value": "test_api_secret_456"
+				}
+			  ],
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/transfer-status/{{b2bTransferId}}",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "transfer-status", "{{b2bTransferId}}"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Transfer status retrieved', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.transfer).to.exist;",
+					"    pm.expect(jsonData.transfer.status).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Process Batch Transfer",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				},
+				{
+				  "key": "x-api-key",
+				  "value": "test_api_key_123"
+				},
+				{
+				  "key": "x-api-secret",
+				  "value": "test_api_secret_456"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"batch_id\": \"BATCH_{{$randomUUID}}\",\n  \"transfers\": [\n    {\n      \"transaction_reference\": \"TXN_{{$randomUUID}}_1\",\n      \"sender_bank_id\": \"011\",\n      \"recipient_bank_id\": \"058\",\n      \"sender_account\": {\n        \"account_number\": \"1234567890\",\n        \"account_name\": \"Corporate Account Ltd\"\n      },\n      \"recipient_account\": {\n        \"account_number\": \"0987654321\",\n        \"account_name\": \"Recipient Corp 1\",\n        \"sort_code\": \"058\"\n      },\n      \"amount\": 50000,\n      \"source_currency\": \"NGN\",\n      \"target_currency\": \"USD\",\n      \"purpose\": \"Salary payment\",\n      \"memo\": \"Monthly salary\"\n    },\n    {\n      \"transaction_reference\": \"TXN_{{$randomUUID}}_2\",\n      \"sender_bank_id\": \"011\",\n      \"recipient_bank_id\": \"058\",\n      \"sender_account\": {\n        \"account_number\": \"1234567890\",\n        \"account_name\": \"Corporate Account Ltd\"\n      },\n      \"recipient_account\": {\n        \"account_number\": \"1122334455\",\n        \"account_name\": \"Recipient Corp 2\",\n        \"sort_code\": \"058\"\n      },\n      \"amount\": 75000,\n      \"source_currency\": \"NGN\",\n      \"target_currency\": \"USD\",\n      \"purpose\": \"Supplier payment\",\n      \"memo\": \"Invoice settlement\"\n    }\n  ]\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/batch-transfer",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "batch-transfer"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Batch transfer initiated', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.batch_id).to.exist;",
+					"    pm.expect(jsonData.transfers).to.exist;",
+					"    pm.expect(jsonData.accepted_count).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Verify Webhook",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				},
+				{
+				  "key": "x-webhook-signature",
+				  "value": "sha256=test_signature_hash"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"transaction_id\": \"{{b2bTransferId}}\",\n  \"status\": \"completed\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"metadata\": {\n    \"completion_time\": \"2024-01-15T10:30:00Z\",\n    \"fees_charged\": 25.50\n  }\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/bank-integration/webhook-verify",
+				"host": ["{{baseUrl}}"],
+				"path": ["bank-integration", "webhook-verify"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Webhook processed successfully', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.reference).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  }
+		]
+	  },
+	  {
+		"name": "📊 Dashboard",
+		"description": "User dashboard data and overview",
+		"item": [
+		  {
+			"name": "Get User Dashboard",
+			"request": {
+			  "method": "GET",
+			  "header": [
+				{
+				  "key": "Authorization",
+				  "value": "Bearer {{authToken}}"
+				}
+			  ],
+			  "url": {
+				"raw": "{{baseUrl}}/dashboard",
+				"host": ["{{baseUrl}}"],
+				"path": ["dashboard"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Dashboard data retrieved', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.data).to.exist;",
+					"    pm.expect(jsonData.data.user).to.exist;",
+					"    pm.expect(jsonData.data.wallet).to.exist;",
+					"    pm.expect(jsonData.data.transaction_stats).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  }
+		]
+	  },
+	{
+	  "name": "🤖 ML/AI Features",
+	  "description": "Machine Learning and AI endpoints for predictions and optimization",
+	  "item": [
+		{
+		  "name": "Get Liquidity Forecast",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/ml/liquidity-forecast/NGN/USD?hours=48&confidence=0.9",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ml", "liquidity-forecast", "NGN", "USD"],
+			  "query": [
+				{
+				  "key": "hours",
+				  "value": "48"
+				},
+				{
+				  "key": "confidence",
+				  "value": "0.9"
+				}
+			  ]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Liquidity forecast retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.corridor).to.exist;",
+				  "    pm.expect(jsonData.data.forecast_hours).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Predict Optimal Fee",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"from_currency\": \"NGN\",\n  \"to_currency\": \"USD\",\n  \"amount\": 50000\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/ml/optimal-fee",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ml", "optimal-fee"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Optimal fee predicted', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.recommended_fee).to.exist;",
+				  "    pm.expect(jsonData.data.fee_tiers).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Forecast Transaction Volume",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/ml/volume-forecast/NGN/USD?days=7",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ml", "volume-forecast", "NGN", "USD"],
+			  "query": [
+				{
+				  "key": "days",
+				  "value": "7"
+				}
+			  ]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Volume forecast retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.forecast_days).to.exist;",
+				  "    pm.expect(jsonData.data.predictions).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Get Corridor Forecasts",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/ml/corridor-forecasts",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ml", "corridor-forecasts"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Corridor forecasts retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.corridors).to.exist;",
+				  "    pm.expect(jsonData.forecasts).to.exist;",
+				  "    pm.expect(jsonData.generated_at).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+	  "name": "🔒 Security",
+	  "description": "Security, fraud detection and risk assessment",
+	  "item": [
+		{
+		  "name": "Assess Transaction Risk",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"transaction_id\": \"{{transactionId}}\",\n  \"context\": {\n    \"device_id\": \"device_123\",\n    \"location\": \"Lagos, Nigeria\",\n    \"session_duration\": 300\n  }\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/security/assess-transaction",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["security", "assess-transaction"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Transaction risk assessed', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.risk_score).to.exist;",
+				  "    pm.expect(jsonData.data.risk_level).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Assess Device Risk",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"device_fingerprint\": {\n    \"user_agent\": \"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)\",\n    \"screen_resolution\": \"390x844\",\n    \"timezone\": \"Africa/Lagos\",\n    \"language\": \"en-US\",\n    \"platform\": \"iPhone\"\n  }\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/security/assess-device",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["security", "assess-device"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Device risk assessed', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.risk_score).to.exist;",
+				  "    pm.expect(jsonData.data.is_trusted).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Get Fraud Alerts",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/security/fraud-alerts?risk_level=high&status=active&limit=20",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["security", "fraud-alerts"],
+			  "query": [
+				{
+				  "key": "risk_level",
+				  "value": "high"
+				},
+				{
+				  "key": "status",
+				  "value": "active"
+				},
+				{
+				  "key": "limit",
+				  "value": "20"
+				}
+			  ]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Fraud alerts retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(Array.isArray(jsonData.data.alerts)).to.be.true;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Update Fraud Alert",
+		  "request": {
+			"method": "PUT",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"status\": \"resolved\",\n  \"resolution\": \"False positive - verified with customer\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/security/fraud-alerts/{{fraudAlertId}}",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["security", "fraud-alerts", "{{fraudAlertId}}"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Fraud alert updated', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.data).to.exist;",
+				  "    pm.expect(jsonData.data.status).to.equal('resolved');",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Record Login Attempt",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"success\": true,\n  \"ip_address\": \"192.168.1.100\",\n  \"device_fingerprint\": {\n    \"user_agent\": \"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)\",\n    \"screen_resolution\": \"390x844\"\n  },\n  \"country_code\": \"NG\",\n  \"city\": \"Lagos\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/security/record-login",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["security", "record-login"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Login attempt recorded', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.message).to.equal('Login attempt recorded');",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+	  "name": "⚙️ System",
+	  "description": "System health, metrics and administrative functions",
+	  "item": [
+		{
+		  "name": "Get System Status",
+		  "request": {
+			"method": "GET",
+			"header": [],
+			"url": {
+			  "raw": "{{baseUrl}}/system/status",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["system", "status"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('System status retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.status).to.exist;",
+				  "    pm.expect(jsonData.status.system).to.exist;",
+				  "    pm.expect(jsonData.status.database).to.exist;",
+				  "    pm.expect(jsonData.status.redis).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Health Check",
+		  "request": {
+			"method": "GET",
+			"header": [],
+			"url": {
+			  "raw": "{{baseUrl}}/system/health",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["system", "health"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('System is healthy', function () {",
+				  "    pm.expect([200, 503]).to.include(pm.response.code);",
+				  "});",
+				  "",
+				  "pm.test('Health check response format', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.status).to.exist;",
+				  "    pm.expect(jsonData.timestamp).to.exist;",
+				  "    pm.expect(jsonData.services).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Refresh Exchange Rates",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/system/refresh-rates",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["system", "refresh-rates"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Rates refreshed successfully', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.message).to.equal('Exchange rates refreshed successfully');",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "Get System Metrics",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{adminToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/system/metrics",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["system", "metrics"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('System metrics retrieved', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.metrics).to.exist;",
+				  "    pm.expect(jsonData.metrics.transactions).to.exist;",
+				  "    pm.expect(jsonData.metrics.users).to.exist;",
+				  "    pm.expect(jsonData.metrics.resources).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+	  "name": "📱 USSD",
+	  "description": "USSD session handling for mobile money integration",
+	  "item": [
+		{
+		  "name": "Process USSD Session",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"session_id\": \"{{$randomUUID}}\",\n  \"text\": \"*737#\",\n  \"network_code\": \"MTN\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/ussd/session",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ussd", "session"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('USSD session processed', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.response_type).to.exist;",
+				  "    pm.expect(jsonData.message).to.exist;",
+				  "    pm.expect(['continue', 'end']).to.include(jsonData.response_type);",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "USSD Balance Check",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"session_id\": \"{{$randomUUID}}\",\n  \"text\": \"*737*1#\",\n  \"network_code\": \"MTN\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/ussd/session",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ussd", "session"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Balance check via USSD', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.response_type).to.equal('end');",
+				  "    pm.expect(jsonData.message).to.include('Balance');",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		},
+		{
+		  "name": "USSD Send Money",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"phone_number\": \"+2348123456789\",\n  \"session_id\": \"{{$randomUUID}}\",\n  \"text\": \"*737*2#\",\n  \"network_code\": \"MTN\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/ussd/session",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["ussd", "session"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Send money via USSD initiated', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.response_type).to.equal('continue');",
+				  "    pm.expect(jsonData.message).to.include('phone number');",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+	  "name": "💼 Wallets",
+	  "description": "Wallet operations and demo functions",
+	  "item": [
+		{
+		  "name": "Demo Deposit",
+		  "request": {
+			"method": "POST",
+			"header": [
+			  {
+				"key": "Content-Type",
+				"value": "application/json"
+			  },
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"body": {
+			  "mode": "raw",
+			  "raw": "{\n  \"amount\": 10000,\n  \"currency\": \"NGN\"\n}"
+			},
+			"url": {
+			  "raw": "{{baseUrl}}/wallets/deposit",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["wallets", "deposit"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('Demo deposit successful', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.message).to.equal('Demo deposit successful');",
+				  "    pm.expect(jsonData.wallet).to.exist;",
+				  "    pm.expect(jsonData.wallet.balances).to.exist;",
+				  "});"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+	  "name": "🔌 WebSocket",
+	  "description": "WebSocket token generation for real-time updates",
+	  "item": [
+		{
+		  "name": "Get WebSocket Token",
+		  "request": {
+			"method": "GET",
+			"header": [
+			  {
+				"key": "Authorization",
+				"value": "Bearer {{authToken}}"
+			  }
+			],
+			"url": {
+			  "raw": "{{baseUrl}}/websocket/token",
+			  "host": ["{{baseUrl}}"],
+			  "path": ["websocket", "token"]
+			}
+		  },
+		  "response": [],
+		  "event": [
+			{
+			  "listen": "test",
+			  "script": {
+				"exec": [
+				  "pm.test('Status code is 200', function () {",
+				  "    pm.response.to.have.status(200);",
+				  "});",
+				  "",
+				  "pm.test('WebSocket token generated', function () {",
+				  "    const jsonData = pm.response.json();",
+				  "    pm.expect(jsonData.success).to.be.true;",
+				  "    pm.expect(jsonData.websocket_url).to.exist;",
+				  "    pm.expect(jsonData.token).to.exist;",
+				  "});",
+				  "",
+				  "// Store WebSocket token for future use",
+				  "if (pm.response.json().success) {",
+				  "    pm.collectionVariables.set('websocketToken', pm.response.json().token);",
+				  "}"
+				],
+				"type": "text/javascript"
+			  }
+			}
+		  ]
+		}
+	  ]
+	},
+	{
+		"name": "🔗 Auth Aliases",
+		"description": "Shortcut endpoints for authentication",
+		"item": [
+		  {
+			"name": "Register (Alias)",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirmPassword\": \"SecurePass123!\"\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/register",
+				"host": ["{{baseUrl}}"],
+				"path": ["register"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 201', function () {",
+					"    pm.response.to.have.status(201);",
+					"});",
+					"",
+					"pm.test('User registered successfully', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.message).to.include('registered');",
+					"    pm.expect(jsonData.user).to.exist;",
+					"});"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  },
+		  {
+			"name": "Login (Alias)",
+			"request": {
+			  "method": "POST",
+			  "header": [
+				{
+				  "key": "Content-Type",
+				  "value": "application/json"
+				}
+			  ],
+			  "body": {
+				"mode": "raw",
+				"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+			  },
+			  "url": {
+				"raw": "{{baseUrl}}/login",
+				"host": ["{{baseUrl}}"],
+				"path": ["login"]
+			  }
+			},
+			"response": [],
+			"event": [
+			  {
+				"listen": "test",
+				"script": {
+				  "exec": [
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Login successful', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.be.true;",
+					"    pm.expect(jsonData.token).to.exist;",
+					"    pm.expect(jsonData.user).to.exist;",
+					"});",
+					"",
+					"// Store auth token for future requests",
+					"if (pm.response.json().success) {",
+					"    pm.collectionVariables.set('authToken', pm.response.json().token);",
+					"}"
+				  ],
+				  "type": "text/javascript"
+				}
+			  }
+			]
+		  }
+		]
+	  }
+	],
+	"variable": [
+	  {
+		"key": "baseUrl",
+		"value": "http://localhost:3000",
+		"type": "string"
+	  },
+	  {
+		"key": "authToken",
+		"value": "",
+		"type": "string"
+	  },
+	  {
+		"key": "userId",
+		"value": "",
+		"type": "string"
+	  },
+	  {
+		"key": "websocketToken",
+		"value": "",
+		"type": "string"
+	  },
+	  {
+		"key": "uploadedFileId",
+		"value": "",
+		"type": "string"
+	  }
+	]
+  }

@@ -1,0 +1,62 @@
+# version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/crossbridge
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=8895ff4465a7adf691f6132db3a9ea2e07b835585922bfdb71dcac18584c613f
+      - JWT_REFRESH_SECRET=52ae5a8806813535afe83b5664c9867673c6ec6bac0decbb36bd940ee25ca728
+      - JWT_EXPIRY=1d
+      - JWT_REFRESH_EXPIRY=7d
+      - PORT=3000
+      - MOCK_BANK_DELAY_MS=2000
+      - MOCK_SUCCESS_RATE=0.95
+      - BASE_FEE_PERCENTAGE=0.3
+      - RATE_REFRESH_INTERVAL=30000
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started 
+    command: npm run dev
+
+  postgres:
+    image: postgres:15-alpine
+    # ports:
+    #  - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=crossbridge
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crossbridge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s 
+
+  redis:
+    image: redis:7-alpine
+    #ports:
+    #  - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres_data:
+  redis_data: 

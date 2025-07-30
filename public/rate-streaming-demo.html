@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossBridge Rate Streaming Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .status {
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .status.connected {
+            background-color: #e3f9e5;
+            color: #18794e;
+        }
+        .status.disconnected {
+            background-color: #ffe4e4;
+            color: #b91c1c;
+        }
+        .control-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            background-color: #1a56db;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1e429f;
+        }
+        button:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+        select, input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .currency-pairs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .currency-pair {
+            background-color: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            width: 220px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .currency-pair:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .currency-pair.highlight {
+            animation: highlight 1s;
+        }
+        .pair-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .pair-name {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .pair-rate {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .change {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .change.positive {
+            background-color: #e3f9e5;
+            color: #18794e;
+        }
+        .change.negative {
+            background-color: #ffe4e4;
+            color: #b91c1c;
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 10px;
+        }
+        .console {
+            background-color: #111827;
+            color: #f3f4f6;
+            border-radius: 6px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        .console-entry {
+            margin-bottom: 8px;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 8px;
+        }
+        .console-entry pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        .console-entry .timestamp {
+            color: #9ca3af;
+        }
+        @keyframes highlight {
+            0% { background-color: #e3f9e5; }
+            100% { background-color: #fff; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CrossBridge Rate Streaming Demo</h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Real-time Exchange Rates</h2>
+                <div class="status disconnected" id="connection-status">Disconnected</div>
+            </div>
+            
+            <div class="control-panel">
+                <button id="connect-btn">Connect</button>
+                <button id="disconnect-btn" disabled>Disconnect</button>
+                <select id="currency-select">
+                    <option value="NGN_USD">NGN → USD</option>
+                    <option value="USD_NGN">USD → NGN</option>
+                    <option value="NGN_GBP">NGN → GBP</option>
+                    <option value="GBP_NGN">GBP → NGN</option>
+                    <option value="USD_GBP">USD → GBP</option>
+                    <option value="GBP_USD">GBP → USD</option>
+                    <option value="NGN_CBUSD">NGN → CBUSD</option>
+                    <option value="CBUSD_NGN">CBUSD → NGN</option>
+                </select>
+                <button id="subscribe-btn" disabled>Subscribe</button>
+                <button id="unsubscribe-btn" disabled>Unsubscribe Selected</button>
+                <button id="clear-btn">Clear Console</button>
+            </div>
+            
+            <div class="currency-pairs" id="currency-pairs"></div>
+        </div>
+        
+        <div class="console" id="console"></div>
+    </div>
+    
+    <script>
+        // Configuration
+        const wsEndpoint = 'ws://' + window.location.host + '/ws/rates';
+        
+        // DOM elements
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const subscribeBtn = document.getElementById('subscribe-btn');
+        const unsubscribeBtn = document.getElementById('unsubscribe-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const currencySelect = document.getElementById('currency-select');
+        const connectionStatus = document.getElementById('connection-status');
+        const currencyPairsContainer = document.getElementById('currency-pairs');
+        const consoleElement = document.getElementById('console');
+        
+        // State
+        let ws = null;
+        let subscribedPairs = new Set();
+        let lastRates = {};
+        
+        // Connect to WebSocket
+        connectBtn.addEventListener('click', () => {
+            if (ws) return;
+            
+            logToConsole('Connecting to ' + wsEndpoint);
+            
+            try {
+                ws = new WebSocket(wsEndpoint);
+                
+                ws.onopen = () => {
+                    connectionStatus.textContent = 'Connected';
+                    connectionStatus.classList.remove('disconnected');
+                    connectionStatus.classList.add('connected');
+                    
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    subscribeBtn.disabled = false;
+                    unsubscribeBtn.disabled = false;
+                    
+                    logToConsole('Connection established');
+                };
+                
+                ws.onclose = () => {
+                    connectionStatus.textContent = 'Disconnected';
+                    connectionStatus.classList.remove('connected');
+                    connectionStatus.classList.add('disconnected');
+                    
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    subscribeBtn.disabled = true;
+                    unsubscribeBtn.disabled = true;
+                    
+                    ws = null;
+                    logToConsole('Connection closed');
+                };
+                
+                ws.onerror = (error) => {
+                    logToConsole('WebSocket error: ' + JSON.stringify(error));
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    switch (data.type) {
+                        case 'welcome':
+                            logToConsole('Server: ' + data.message);
+                            break;
+                            
+                        case 'subscription_result':
+                            logToConsole('Subscribed to: ' + data.subscribed.join(', '));
+                            if (data.invalid_pairs && data.invalid_pairs.length > 0) {
+                                logToConsole('Invalid pairs: ' + data.invalid_pairs.join(', '), 'error');
+                            }
+                            subscribedPairs = new Set(data.subscribed);
+                            break;
+                            
+                        case 'unsubscription_result':
+                            logToConsole('Currently subscribed to: ' + data.subscribed.join(', '));
+                            subscribedPairs = new Set(data.subscribed);
+                            break;
+                            
+                        case 'current_rates':
+                            logToConsole('Received current rates for ' + Object.keys(data.rates).length + ' pairs');
+                            updateRates(data.rates);
+                            break;
+                            
+                        case 'rate_update':
+                            logToConsole('Rate update received for ' + Object.keys(data.rates).length + ' pairs');
+                            updateRates(data.rates, true);
+                            break;
+                            
+                        case 'error':
+                            logToConsole('Error: ' + data.message, 'error');
+                            break;
+                            
+                        default:
+                            logToConsole('Received: ' + JSON.stringify(data));
+                    }
+                };
+                
+                // Send a ping every 30 seconds to keep the connection alive
+                setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000);
+                
+            } catch (error) {
+                logToConsole('Error connecting: ' + error.message, 'error');
+            }
+        });
+        
+        // Disconnect from WebSocket
+        disconnectBtn.addEventListener('click', () => {
+            if (!ws) return;
+            
+            ws.close();
+            subscribedPairs.clear();
+            currencyPairsContainer.innerHTML = '';
+        });
+        
+        // Subscribe to currency pair
+        subscribeBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            
+            const pair = currencySelect.value;
+            ws.send(JSON.stringify({
+                type: 'subscribe',
+                pairs: [pair]
+            }));
+        });
+        
+        // Unsubscribe from selected currency pair
+        unsubscribeBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN || subscribedPairs.size === 0) return;
+            
+            const selectedPair = currencySelect.value;
+            if (subscribedPairs.has(selectedPair)) {
+                ws.send(JSON.stringify({
+                    type: 'unsubscribe',
+                    pairs: [selectedPair]
+                }));
+                
+                // Remove the pair element
+                const pairElement = document.getElementById(`pair-${selectedPair}`);
+                if (pairElement) {
+                    pairElement.remove();
+                }
+            } else {
+                logToConsole(`Not subscribed to ${selectedPair}`, 'error');
+            }
+        });
+        
+        // Clear console
+        clearBtn.addEventListener('click', () => {
+            consoleElement.innerHTML = '';
+        });
+        
+        // Update rate displays
+        function updateRates(rates, highlight = false) {
+            for (const [pair, data] of Object.entries(rates)) {
+                lastRates[pair] = data;
+                
+                // Check if we already have an element for this pair
+                let pairElement = document.getElementById(`pair-${pair}`);
+                
+                if (!pairElement) {
+                    // Create new element
+                    pairElement = document.createElement('div');
+                    pairElement.className = 'currency-pair';
+                    pairElement.id = `pair-${pair}`;
+                    
+                    pairElement.innerHTML = `
+                        <div class="pair-header">
+                            <span class="pair-name">${data.from}/${data.to}</span>
+                        </div>
+                        <div class="pair-rate">${formatRate(data.rate)}</div>
+                        <div class="change ${data.change_24h >= 0 ? 'positive' : 'negative'}">
+                            ${data.change_24h >= 0 ? '▲' : '▼'} ${Math.abs(data.change_24h).toFixed(2)}%
+                        </div>
+                        <div class="timestamp">Updated: ${formatTime(data.timestamp)}</div>
+                    `;
+                    
+                    currencyPairsContainer.appendChild(pairElement);
+                } else {
+                    // Update existing element
+                    const rateElement = pairElement.querySelector('.pair-rate');
+                    const changeElement = pairElement.querySelector('.change');
+                    const timestampElement = pairElement.querySelector('.timestamp');
+                    
+                    rateElement.textContent = formatRate(data.rate);
+                    
+                    changeElement.textContent = `${data.change_24h >= 0 ? '▲' : '▼'} ${Math.abs(data.change_24h).toFixed(2)}%`;
+                    changeElement.className = `change ${data.change_24h >= 0 ? 'positive' : 'negative'}`;
+                    
+                    timestampElement.textContent = `Updated: ${formatTime(data.timestamp)}`;
+                    
+                    // Highlight the updated pair
+                    if (highlight) {
+                        pairElement.classList.remove('highlight');
+                        void pairElement.offsetWidth; // Trigger reflow to restart animation
+                        pairElement.classList.add('highlight');
+                    }
+                }
+            }
+        }
+        
+        // Format rate based on currency pair
+        function formatRate(rate) {
+            return rate.toFixed(6);
+        }
+        
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString();
+        }
+        
+        // Log to console
+        function logToConsole(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `console-entry console-${type}`;
+            
+            entry.innerHTML = `
+                <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                <pre>${message}</pre>
+            `;
+            
+            consoleElement.appendChild(entry);
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        }
+    </script>
+</body>
+</html> 
