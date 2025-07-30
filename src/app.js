@@ -48,6 +48,17 @@ const path = require('path'); // Added for express.static
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
+const passwordResetRoutes = require('./routes/passwordReset');
+const adminRoutes = require('./routes/admin');
+const healthRoutes = require('./routes/health');
+
+// Import middleware
+const { requestLogger } = require('./middleware/requestLogger');
+const { apiLimiter, authLimiter, ussdLimiter } = require('./middleware/rateLimiting');
+
+// Import Swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./utils/swagger');
 const bankingRoutes = require('./routes/banking');
 const cbusdRoutes = require('./routes/cbusd');
 const systemRoutes = require('./routes/system');
@@ -84,6 +95,21 @@ app.use(cors());
 
 // Set security HTTP headers
 app.use(helmet());
+
+// Request logging
+app.use(requestLogger);
+app.use(morgan('dev'));
+
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Health check endpoints
+app.use('/health', healthRoutes);
+
+// Rate limiting
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/ussd', ussdLimiter);
 
 // Body parser middleware
 app.use(express.json({ limit: '10kb' }));
