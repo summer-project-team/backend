@@ -21,10 +21,9 @@ class LiquidityService {
     this.defaultPoolTargets = {
       'NGN': 5000000, // 5M NGN
       'USD': 100000,  // $100K
-      'USDC': 100000, // 100K USDC
       'GBP': 75000,   // £75K
       'EUR': 85000,   // €85K
-      'CBUSD': 150000 // 150K CBUSD
+      'CBUSD': 250000 // 250K CBUSD (combined previous USDC + CBUSD amounts)
     };
   }
 
