@@ -1,5 +1,19 @@
 const express = require('express');
-const { getProfile, updateProfile, getWallet, lookupUser, validatePhone } = require('../controllers/userController');
+const { 
+  getProfile, 
+  updateProfile, 
+  getWallet, 
+  lookupUser, 
+  validatePhone,
+  deleteAccount,
+  hardDeleteUser,
+  restoreUser,
+  setupTransactionPin,
+  verifyTransactionPin,
+  changeTransactionPin,
+  disableTransactionPin,
+  getPinStatus,
+} = require('../controllers/userController');
 const { validate, schemas } = require('../middleware/validation');
 const { lookupLimiter } = require('../middleware/rateLimiting');
 const { protect } = require('../middleware/auth');
@@ -16,5 +30,17 @@ router.put('/profile', validate(schemas.updateProfile), updateProfile); // Add a
 router.get('/wallet', getWallet);
 router.post('/lookup', lookupLimiter, lookupUser);
 router.post('/validate-phone', validate(schemas.validatePhone), validatePhone);
+
+// User deletion routes
+router.delete('/me', deleteAccount); // Soft delete own account
+router.delete('/:id/hard-delete', hardDeleteUser); // Hard delete (admin only)
+router.post('/:id/restore', restoreUser); // Restore deleted user (admin only)
+
+// PIN management routes
+router.get('/pin/status', getPinStatus); // Get PIN enabled status
+router.post('/pin/setup', setupTransactionPin); // Set transaction PIN
+router.post('/pin/verify', verifyTransactionPin); // Verify transaction PIN
+router.put('/pin/change', changeTransactionPin); // Change transaction PIN
+router.delete('/pin', disableTransactionPin); // Disable transaction PIN
 
 module.exports = router; 

@@ -173,7 +173,8 @@ const sendMoney = asyncHandler(async (req, res, next) => {
     recipient_country_code,
     amount, 
     narration,
-    two_factor_code
+    two_factor_code,
+    transaction_pin
   } = req.body;
   
   const senderId = req.user.id;
@@ -187,6 +188,19 @@ const sendMoney = asyncHandler(async (req, res, next) => {
   const amountValue = parseFloat(amount);
   if (amountValue <= 0) {
     return next(new AppError('Amount must be greater than 0', 400));
+  }
+  
+  // Check if user has PIN enabled and verify it
+  const pinEnabled = await User.hasPinEnabled(senderId);
+  if (pinEnabled) {
+    if (!transaction_pin) {
+      return next(new AppError('Transaction PIN is required', 400));
+    }
+    
+    const pinVerification = await User.verifyTransactionPin(senderId, transaction_pin);
+    if (!pinVerification.valid) {
+      return next(new AppError(pinVerification.error || 'Invalid transaction PIN', 400));
+    }
   }
   
   // Validate recipient phone number
@@ -668,13 +682,27 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
     bank_account_number, 
     bank_name, 
     account_holder_name,
-    two_factor_code 
+    two_factor_code,
+    transaction_pin
   } = req.body;
 
   // Validate currency
   const validCurrencies = ['NGN', 'GBP', 'USD'];
   if (!validCurrencies.includes(currency.toUpperCase())) {
     return next(new AppError('Invalid currency', 400));
+  }
+
+  // Check if user has PIN enabled and verify it
+  const pinEnabled = await User.hasPinEnabled(userId);
+  if (pinEnabled) {
+    if (!transaction_pin) {
+      return next(new AppError('Transaction PIN is required', 400));
+    }
+    
+    const pinVerification = await User.verifyTransactionPin(userId, transaction_pin);
+    if (!pinVerification.valid) {
+      return next(new AppError(pinVerification.error || 'Invalid transaction PIN', 400));
+    }
   }
 
   // Get user wallet

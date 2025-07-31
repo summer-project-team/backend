@@ -15,6 +15,22 @@ module.exports = {
       max: 10,
     },
   },
+
+  // Local development (outside Docker)
+  local: {
+    client: 'pg',
+    connection: 'postgresql://postgres:postgres@localhost:5432/crossbridge',
+    migrations: {
+      directory: './migrations',
+    },
+    seeds: {
+      directory: './seeds',
+    },
+    pool: {
+      min: 2,
+      max: 10,
+    },
+  },
   
   production: {
     client: 'pg',

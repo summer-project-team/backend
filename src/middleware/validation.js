@@ -128,6 +128,14 @@ const schemas = {
         'string.max': 'Narration cannot exceed 200 characters'
       }),
       
+    transaction_pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Transaction PIN must be 4 digits',
+        'any.required': 'Transaction PIN is required'
+      }),
+      
     two_factor_code: Joi.string()
       .pattern(/^[0-9]{6}$/)
       .when('amount', {
@@ -222,6 +230,14 @@ const schemas = {
         'string.max': 'Account holder name cannot exceed 100 characters',
         'string.pattern.base': 'Account holder name can only contain letters, spaces, dots, and hyphens',
         'any.required': 'Account holder name is required'
+      }),
+    
+    transaction_pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Transaction PIN must be 4 digits',
+        'any.required': 'Transaction PIN is required'
       }),
     
     two_factor_code: Joi.string()
