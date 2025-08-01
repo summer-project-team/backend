@@ -2,6 +2,7 @@ const express = require('express');
 const { 
   linkAccount,
   getAccounts,
+  removeAccount,
   verifyDeposit,
   verifyAccount
 } = require('../controllers/bankingController');
@@ -16,6 +17,7 @@ router.use(protect);
 // Banking routes
 router.post('/link-account', validate(schemas.linkAccount), linkAccount);
 router.get('/accounts', getAccounts);
+router.delete('/accounts/:accountId', removeAccount);
 router.post('/verify-deposit', verifyDeposit);
 router.post('/verify-account', verifyAccount);
 

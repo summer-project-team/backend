@@ -273,6 +273,7 @@ const schemas = {
   linkAccount: Joi.object({
     account_number: Joi.string().required(),
     bank_code: Joi.string().required(),
+    bank_name: Joi.string().required(),
     account_name: Joi.string().required(),
     account_type: Joi.string().required().valid('savings', 'checking', 'current'),
     currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),

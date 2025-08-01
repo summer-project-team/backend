@@ -152,9 +152,38 @@ const verifyAccount = asyncHandler(async (req, res, next) => {
   }
 });
 
+/**
+ * @desc    Remove a linked bank account
+ * @route   DELETE /api/banking/accounts/:accountId
+ * @access  Private
+ */
+const removeAccount = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const { accountId } = req.params;
+  
+  try {
+    // Check if account exists and belongs to user
+    const account = await bankingService.getBankAccount(userId, accountId);
+    if (!account) {
+      return next(new AppError('Bank account not found', 404));
+    }
+    
+    // Remove the account
+    await bankingService.removeBankAccount(userId, accountId);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Bank account removed successfully',
+    });
+  } catch (error) {
+    return next(new AppError('Failed to remove bank account: ' + error.message, 500));
+  }
+});
+
 module.exports = {
   linkAccount,
   getAccounts,
+  removeAccount,
   verifyDeposit,
   verifyAccount,
 }; 

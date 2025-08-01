@@ -183,6 +183,53 @@ const bankingService = {
       throw error;
     }
   },
+
+  /**
+   * Get a specific bank account for a user
+   * @param {string} userId - User ID
+   * @param {string} accountId - Account ID
+   * @returns {Object} Bank account
+   */
+  getBankAccount: async (userId, accountId) => {
+    try {
+      const account = await db('bank_accounts')
+        .where({
+          user_id: userId,
+          id: accountId,
+        })
+        .first();
+      
+      return account;
+    } catch (error) {
+      console.error('Error getting bank account:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove a bank account for a user
+   * @param {string} userId - User ID
+   * @param {string} accountId - Account ID
+   */
+  removeBankAccount: async (userId, accountId) => {
+    try {
+      const deletedCount = await db('bank_accounts')
+        .where({
+          user_id: userId,
+          id: accountId,
+        })
+        .del();
+      
+      if (deletedCount === 0) {
+        throw new Error('Bank account not found or already deleted');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing bank account:', error);
+      throw error;
+    }
+  },
 };
 
 module.exports = bankingService; 

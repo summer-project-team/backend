@@ -461,13 +461,19 @@ const verifyTransactionPin = asyncHandler(async (req, res, next) => {
   const { pin } = req.body;
   
   if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-    return next(new AppError('Invalid PIN format', 400));
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid PIN format. Please enter a 4-digit PIN.'
+    });
   }
   
   const result = await User.verifyTransactionPin(userId, pin);
   
   if (!result.valid) {
-    return next(new AppError(result.error, 400));
+    return res.status(400).json({
+      success: false,
+      message: result.error || 'Invalid PIN'
+    });
   }
   
   res.status(200).json({
