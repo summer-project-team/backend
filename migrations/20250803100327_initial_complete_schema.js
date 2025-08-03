@@ -73,7 +73,6 @@ exports.up = function(knex) {
       table.string('reference_id', 255);
       table.string('source_currency', 10);
       table.string('target_currency', 10);
-      table.timestamp('updated_at');
       table.string('sender_country_code', 3);
       table.string('recipient_country_code', 3);
       
