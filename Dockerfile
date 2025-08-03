@@ -10,7 +10,7 @@ RUN npm install
 COPY . .
 
 # Expose API port
-EXPOSE 3000
+EXPOSE $PORT
 
 # Command to run the application
-CMD ["npm", "start"] 
+CMD ["sh", "-c", "npx knex migrate:latest && npm start"]
