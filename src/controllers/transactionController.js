@@ -723,11 +723,23 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
   }
 
   // For high value withdrawals, require 2FA
-  if (parseFloat(amount) > 500) { // $500 equivalent
+  const highValueThresholds = {
+    'NGN': 1_000_000,
+    'USD': 1000,
+    'GBP': 1000
+  };
+  
+  const threshold = highValueThresholds[currency.toUpperCase()] || 1000;
+  if (parseFloat(amount) > threshold) {
     if (!two_factor_code) {
-      return next(new AppError('Two-factor authentication required for high-value withdrawals', 400));
+      return next(new AppError(`Two-factor authentication required for withdrawals above ${threshold.toLocaleString()} ${currency.toUpperCase()}`, 400));
     }
-    // Verify 2FA code (implement your 2FA logic)
+    
+    // Verify 2FA code
+    const twoFactorValid = await verifyTwoFactorCode(userId, two_factor_code);
+    if (!twoFactorValid) {
+      return next(new AppError('Invalid two-factor code', 401));
+    }
   }
 
   try {

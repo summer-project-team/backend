@@ -160,7 +160,6 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); // Updated to users plural for consistency
 app.use('/api/users', aliasRoutes); // Alias routes for backward compatibility

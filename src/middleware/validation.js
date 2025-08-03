@@ -130,22 +130,21 @@ const schemas = {
       
     transaction_pin: Joi.string()
       .pattern(/^[0-9]{4}$/)
-      .required()
+      .optional()
       .messages({
-        'string.pattern.base': 'Transaction PIN must be 4 digits',
-        'any.required': 'Transaction PIN is required'
+        'string.pattern.base': 'Transaction PIN must be 4 digits'
       }),
       
     two_factor_code: Joi.string()
       .pattern(/^[0-9]{6}$/)
       .when('amount', {
-        is: Joi.number().greater(500),
+        is: Joi.number().greater(1000000),
         then: Joi.required(),
         otherwise: Joi.optional()
       })
       .messages({
         'string.pattern.base': 'Two-factor code must be 6 digits',
-        'any.required': 'Two-factor authentication required for transfers above $500 CBUSD'
+        'any.required': 'Two-factor authentication required for transfers above ₦1,000,000 CBUSD'
       }),
       
     biometric_hash: Joi.string().optional(),
@@ -183,13 +182,13 @@ const schemas = {
       .positive()
       .precision(2)
       .min(10)
-      .max(1000000)
+      .max(10000000) // Increased max to accommodate different currencies
       .required()
       .messages({
         'number.base': 'Amount must be a number',
         'number.positive': 'Amount must be positive',
         'number.min': 'Minimum withdrawal amount is 10',
-        'number.max': 'Maximum withdrawal amount is 1,000,000',
+        'number.max': 'Maximum withdrawal amount is 10,000,000',
         'any.required': 'Amount is required'
       }),
     
@@ -243,7 +242,7 @@ const schemas = {
     two_factor_code: Joi.string()
       .pattern(/^[0-9]{6}$/)
       .when('amount', {
-        is: Joi.number().greater(500), // Require 2FA for amounts > $500 equivalent
+        is: Joi.number().greater(1000000), // Require 2FA for amounts > ₦1,000,000 equivalent
         then: Joi.required(),
         otherwise: Joi.optional()
       })

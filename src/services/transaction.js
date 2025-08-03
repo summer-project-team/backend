@@ -174,12 +174,12 @@ async completeTransaction(transactionId) {
       if (txn.recipient_id) {
         await this.updateWalletBalance(trx, txn.recipient_id, txn.target_currency, parseFloat(txn.amount) * parseFloat(txn.exchange_rate));
       }
-    } else if (txn.transaction_type == 'withdrawal') {
-      // For withdrawals, donot deduct from the sender (already burned CBUSD)
-      // Don't credit the recipient (it's a bank account, we'll use payment gateway to handle it, it's not a user's wallet)
-       console.log(`Withdrawal completed, CBUSD already burned, no wallet updates needed`);
+    } else if (txn.transaction_type === 'withdrawal') {
+      // For withdrawals, CBUSD was already burned upfront
+      // NO wallet updates needed - money goes to external bank account
+      console.log(`Withdrawal completed: CBUSD already burned, no wallet updates needed`);
     } else {
-      // For regular transactions (app_transfer, withdrawal, etc.)
+      // For regular transactions (app_transfer, etc.)
       
       // Update sender wallet (deduct amount + fee) - only if sender exists
       if (txn.sender_id) {
@@ -298,6 +298,12 @@ getCurrencyBalanceColumn(currency) {
  * @param {number} amount - Amount to add
  */
 async updateWalletBalance(trx, userId, currency, amount) {
+  // Safety check: Do not process null or undefined userIds
+  if (!userId) {
+    console.log(`⚠️  updateWalletBalance: Skipping null/undefined userId`);
+    return;
+  }
+
   // Get or create user wallet
   let wallet = await trx('wallets')
     .where({ user_id: userId })
