@@ -3,6 +3,7 @@ const knex = require('knex')(require('../../knexfile')[process.env.NODE_ENV || '
 const transactionService = require('../services/transaction');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
+const flutterwaveService = require('../services/flutterwaveService');
 
 /**
  * @desc    Handle bank deposit webhook
@@ -62,6 +63,43 @@ const handleBankDeposit = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Webhook processing error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Webhook processing failed'
+    });
+  }
+});
+
+/**
+ * @desc    Handle Flutterwave webhook for fiat simulation
+ * @route   POST /api/webhooks/flutterwave
+ * @access  Public (but verified)
+ */
+const handleFlutterwaveWebhook = asyncHandler(async (req, res) => {
+  try {
+    const signature = req.headers['verif-hash'];
+    const payload = JSON.stringify(req.body);
+    
+    // Verify webhook signature
+    if (!flutterwaveService.verifyWebhookSignature(signature, payload)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid webhook signature'
+      });
+    }
+
+    console.log('🔔 Flutterwave webhook received:', req.body.event);
+    
+    // Process the webhook using the enhanced service
+    const result = await flutterwaveService.processDepositWebhook(req.body);
+    
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data || null
+    });
+  } catch (error) {
+    console.error('Flutterwave webhook error:', error);
     res.status(500).json({
       success: false,
       error: 'Webhook processing failed'
@@ -143,6 +181,7 @@ const getCBUSDRate = async (currency) => {
 
 module.exports = {
   handleBankDeposit,
+  handleFlutterwaveWebhook,
   processDepositToApp,
   getCBUSDRate
 };

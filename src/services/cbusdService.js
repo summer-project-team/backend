@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const cbusdService = {
   /**
    * Mint CBUSD tokens
-   * @param {string} userId - User ID
+   * @param {string} userId - User ID  
    * @param {string} walletId - Wallet ID
    * @param {number} amount - Amount to mint
    * @param {string} sourceCurrency - Source currency
@@ -17,13 +17,24 @@ const cbusdService = {
    */
   mintCBUSD: async (userId, walletId, amount, sourceCurrency) => {
     try {
+      // Simulate blockchain interaction for demo purposes
+      const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      const mockBlockNumber = Math.floor(Math.random() * 1000000) + 18000000;
+      
+      console.log(`🔗 [SIMULATION] Minting ${amount} CBUSD on Polygon Mumbai`);
+      console.log(`📋 Mock Transaction Hash: ${mockTxHash}`);
+      console.log(`🧱 Mock Block Number: ${mockBlockNumber}`);
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // In a real implementation, this would interact with a blockchain
       // For the prototype, we'll just update the wallet balance
       
       // Update wallet balance
       const wallet = await Wallet.updateBalance(walletId, 'cbusd', amount);
       
-      // Create transaction record
+      // Create transaction record with blockchain simulation metadata
       const transaction = await Transaction.create({
         sender_id: null, // System mint
         recipient_id: userId,
@@ -34,10 +45,18 @@ const cbusdService = {
         fee: 0, // No fee for minting
         status: 'completed',
         transaction_type: 'mint',
-        reference: `MINT-${uuidv4().substring(0, 8)}`,
+        reference: `MINT-${require('uuid').v4().substring(0, 8)}`,
         metadata: JSON.stringify({
           operation: 'mint',
           source_currency: sourceCurrency,
+          // Blockchain simulation metadata
+          blockchain_simulation: true,
+          network: 'polygon_mumbai',
+          contract_address: '0x742d35Cc6634C0532925a3b8D6Ac9f9dB2c14b76', // Mock CBUSD contract
+          transaction_hash: mockTxHash,
+          block_number: mockBlockNumber,
+          gas_used: '21000',
+          gas_price: '20000000000' // 20 gwei
         }),
         completed_at: new Date(),
       });
@@ -49,6 +68,14 @@ const cbusdService = {
         amount,
         new_balance: wallet.cbusd_balance,
         timestamp: new Date().toISOString(),
+        // Add blockchain simulation data for frontend
+        blockchain: {
+          network: 'polygon_mumbai',
+          transaction_hash: mockTxHash,
+          block_number: mockBlockNumber,
+          contract_address: '0x742d35Cc6634C0532925a3b8D6Ac9f9dB2c14b76',
+          explorer_url: `https://mumbai.polygonscan.com/tx/${mockTxHash}`
+        }
       };
     } catch (error) {
       console.error('Error minting CBUSD:', error);
