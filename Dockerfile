@@ -13,10 +13,10 @@ RUN npm install
 COPY . .
 
 # Make migration script executable
-RUN chmod +x docker-migrate-and-start.sh
+RUN chmod +x ./sh/docker-migrate-and-start.sh
 
 # Expose API port
 EXPOSE 10000
 
 # Command to run the application with migration reset
-CMD ["./docker-migrate-and-start.sh"]
+CMD ["./sh/docker-migrate-and-start.sh"]

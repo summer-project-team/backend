@@ -31,29 +31,22 @@ done
 
 echo "✅ Database is ready!"
 
-# Check if migration tables exist and have old migration records
+# Check if migration tables exist and clean them up completely
 if [ "$(table_exists 'knex_migrations')" = "t" ]; then
-    echo "🔍 Checking existing migrations..."
+    echo "🔍 Found existing migration table..."
     
-    # Count migrations that don't exist as files
-    MISSING_COUNT=$(psql "$DATABASE_URL" -t -c "
-        SELECT COUNT(*) FROM knex_migrations 
-        WHERE name NOT LIKE '%20250803100327_initial_complete_schema%' 
-        AND name NOT LIKE '%20250805000000_add_ussd_tables%'
-    " 2>/dev/null | tr -d ' \n')
+    # List current migration records
+    echo "📋 Current migration records:"
+    psql "$DATABASE_URL" -c "SELECT name, migration_time FROM knex_migrations ORDER BY id;" 2>/dev/null || true
     
-    if [ "$MISSING_COUNT" -gt "0" ]; then
-        echo "⚠️  Found $MISSING_COUNT old migration records that don't have corresponding files"
-        echo "🧹 Cleaning up migration state..."
-        
-        # Drop migration tracking tables
-        run_sql "DROP TABLE IF EXISTS knex_migrations CASCADE;"
-        run_sql "DROP TABLE IF EXISTS knex_migrations_lock CASCADE;"
-        
-        echo "✅ Migration state cleaned up"
-    else
-        echo "ℹ️  Migration state looks good"
-    fi
+    # Always clean up migration state to avoid corruption issues
+    echo "🧹 Cleaning up migration state completely..."
+    
+    # Drop migration tracking tables
+    run_sql "DROP TABLE IF EXISTS knex_migrations CASCADE;"
+    run_sql "DROP TABLE IF EXISTS knex_migrations_lock CASCADE;"
+    
+    echo "✅ Migration state cleaned up completely"
 else
     echo "ℹ️  No existing migration table found"
 fi
