@@ -58,7 +58,31 @@ const RATE_LIMITS = {
 const TRANSACTION_LIMITS = {
   MIN_AMOUNT: 0.01,
   MAX_AMOUNT: 1000000,
-  DAILY_LIMIT: 100000
+  DAILY_LIMIT: 100000,
+  // Currency-specific high value thresholds
+  HIGH_VALUE_THRESHOLDS: {
+    NGN: 50000,    // 50,000 NGN ≈ $60 USD
+    GBP: 50,       // £50 ≈ $60 USD  
+    USD: 60,       // $60 USD
+    CBUSD: 60      // 60 CBUSD ≈ $60 USD
+  }
+};
+
+// Helper function to get high value threshold for a currency
+const getHighValueThreshold = (currency) => {
+  return TRANSACTION_LIMITS.HIGH_VALUE_THRESHOLDS[currency] || 60; // Default to $60 equivalent
+};
+
+// Helper function to get country code from currency
+const getCurrencyCountryCode = (currency) => {
+  const currencyToCountry = {
+    'NGN': '+234',  // Nigeria
+    'GBP': '+44',   // United Kingdom  
+    'USD': '+1',    // United States
+    // CBUSD is borderless, so we return null and let the caller decide
+    'CBUSD': null   // Universal token - no specific country
+  };
+  return currencyToCountry[currency.toUpperCase()];
 };
 
 module.exports = {
@@ -67,5 +91,7 @@ module.exports = {
   HTTP_STATUS,
   PIN_CONFIG,
   RATE_LIMITS,
-  TRANSACTION_LIMITS
+  TRANSACTION_LIMITS,
+  getHighValueThreshold,
+  getCurrencyCountryCode
 };

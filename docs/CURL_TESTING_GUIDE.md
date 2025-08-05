@@ -260,14 +260,14 @@ curl -X POST "$API_URL/transactions/bank-to-app" \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -d '{
     "amount": 100000,
-    "currency_from": "NGN",
-    "currency_to": "CBUSD",
-    "bank_details": {
-      "bank_name": "GTBank",
-      "account_number": "1234567890"
-    }
+    "currency": "NGN"
   }'
 ```
+
+**Note**: For deposits:
+- `currency_from` is automatically set to the `currency` field value  
+- `currency_to` is automatically set to "CBUSD" (always to app balance)
+- `sender_country_code` is automatically determined from the source currency (null for borderless tokens)
 
 ### Initiate Bank Withdrawal
 ```bash
@@ -276,17 +276,18 @@ curl -X POST "$API_URL/transactions/app-to-bank" \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -d '{
     "amount": 50,
-    "currency_from": "CBUSD",
-    "currency_to": "GBP",
-    "bank_details": {
-      "bank_name": "NatWest",
-      "account_number": "12345678",
-      "sort_code": "123456",
-      "account_name": "John Doe"
-    },
-    "pin": "1234"
+    "currency": "GBP",
+    "bank_account_number": "12345678",
+    "bank_name": "NatWest",
+    "account_holder_name": "John Doe",
+    "transaction_pin": "1234"
   }'
 ```
+
+**Note**: For withdrawals:
+- `currency_from` is automatically set to "CBUSD" (always from app balance)
+- `currency_to` is automatically set to the `currency` field value
+- `recipient_country_code` is automatically determined from the target currency (null for borderless tokens like CBUSD)
 
 ## 4. Banking Endpoints
 
@@ -300,6 +301,7 @@ curl -X POST "$API_URL/banking/link-account" \
     "account_number": "1234567890",
     "account_name": "John Doe",
     "bank_code": "GTB",
+    "account_type": "savings",
     "currency": "NGN"
   }'
 ```
@@ -369,7 +371,7 @@ curl -X GET "$API_URL/cbusd/balance" \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
-### Transfer CBUSD
+### Transfer CBUSD (legacy, we now use api/transaction/send/)
 ```bash
 curl -X POST "$API_URL/cbusd/transfer" \
   -H "Content-Type: application/json" \
@@ -383,34 +385,276 @@ curl -X POST "$API_URL/cbusd/transfer" \
 
 ## 6. Analytics Endpoints
 
+### Get Transaction Volume Data
+```bash
+# Basic volume data (daily by default)
+curl -X GET "$API_URL/analytics/volume" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Volume data with specific period and currency
+curl -X GET "$API_URL/analytics/volume?period=monthly&currency=NGN" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get Corridor Analytics
+```bash
+# Get analytics for specific currency corridor
+curl -X GET "$API_URL/analytics/corridor/NGN/GBP" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Corridor analytics with time period
+curl -X GET "$API_URL/analytics/corridor/CBUSD/USD?period=weekly" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get User Activity Statistics (Admin Only)
+```bash
+# User activity for last 30 days (default)
+curl -X GET "$API_URL/analytics/user-activity" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# User activity for specific period
+curl -X GET "$API_URL/analytics/user-activity?days=7" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get Performance Metrics (Admin Only)
+```bash
+curl -X GET "$API_URL/analytics/performance" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get System Status (Admin Only)
+```bash
+curl -X GET "$API_URL/analytics/system-status" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get Fraud Indicators (Admin Only)
+```bash
+curl -X GET "$API_URL/analytics/fraud-indicators" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get Dashboard Data (Admin Only)
+```bash
+curl -X GET "$API_URL/analytics/dashboard" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
 ### Get Spending Patterns
 ```bash
+# Basic spending patterns (current user, last 30 days)
 curl -X GET "$API_URL/analytics/spending-patterns" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Spending patterns with filters
+curl -X GET "$API_URL/analytics/spending-patterns?period=weekly&currency=NGN&days=14" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Admin can view specific user's patterns
+curl -X GET "$API_URL/analytics/spending-patterns?userId=user-uuid-here&period=monthly" \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
 ### Get Transaction Trends
 ```bash
-curl -X GET "$API_URL/analytics/transaction-trends?period=monthly" \
+# Basic transaction trends (daily, last 30 days)
+curl -X GET "$API_URL/analytics/transaction-trends" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Transaction trends with specific filters
+curl -X GET "$API_URL/analytics/transaction-trends?period=monthly&currency=GBP&days=90" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Trends for specific transaction type
+curl -X GET "$API_URL/analytics/transaction-trends?transactionType=app_transfer&period=weekly" \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
 ### Get Analytics Summary
 ```bash
+# Basic analytics summary (last 30 days)
 curl -X GET "$API_URL/analytics/summary" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Summary with specific parameters
+curl -X GET "$API_URL/analytics/summary?currency=CBUSD&days=60" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Period-over-period comparison
+curl -X GET "$API_URL/analytics/summary?period=weekly&days=14" \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
 ### Get Monthly Comparison
 ```bash
+# Monthly comparison (last 6 months by default)
 curl -X GET "$API_URL/analytics/monthly-comparison" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Monthly comparison with specific parameters
+curl -X GET "$API_URL/analytics/monthly-comparison?months=12&currency=USD" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Compare specific currency over time
+curl -X GET "$API_URL/analytics/monthly-comparison?months=3&currency=NGN" \
   -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
 ### Get Currency Distribution
 ```bash
+# Basic currency distribution (last 30 days)
 curl -X GET "$API_URL/analytics/currency-distribution" \
   -H "Authorization: Bearer $JWT_TOKEN"
+
+# Currency distribution with filters
+curl -X GET "$API_URL/analytics/currency-distribution?period=weekly&days=14" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Distribution for specific transaction type
+curl -X GET "$API_URL/analytics/currency-distribution?transactionType=withdrawal&days=60" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get CBUSD Flows (Inflow/Outflow)
+```bash
+# Basic CBUSD flows (daily, last 30 days)
+curl -X GET "$API_URL/analytics/cbusd-flows" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# CBUSD flows with specific period
+curl -X GET "$API_URL/analytics/cbusd-flows?period=weekly&days=14" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Extended CBUSD flow analysis
+curl -X GET "$API_URL/analytics/cbusd-flows?period=monthly&days=90" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### Get CBUSD Circulation Analytics
+```bash
+# Basic CBUSD circulation metrics
+curl -X GET "$API_URL/analytics/cbusd-circulation" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Circulation analysis over specific period
+curl -X GET "$API_URL/analytics/cbusd-circulation?period=daily&days=60" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Long-term circulation trends
+curl -X GET "$API_URL/analytics/cbusd-circulation?period=weekly&days=180" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+```
+
+### CBUSD Analytics Features
+
+#### CBUSD Flows Endpoint (`/cbusd-flows`):
+- **Inflow Tracking**: Mint operations and deposits that create new CBUSD
+- **Outflow Tracking**: Burn operations and withdrawals that remove CBUSD
+- **Net Flow Analysis**: Real-time supply changes over time
+- **Velocity Metrics**: How fast CBUSD circulates in the economy
+- **Reserve Ratios**: Backing asset ratios and reserve health
+- **Health Indicators**: Circulation growth, flow stability, backing diversity
+
+#### CBUSD Circulation Endpoint (`/cbusd-circulation`):
+- **Supply Metrics**: Total supply, holder count, distribution statistics
+- **Holder Analytics**: Balance tiers, geographical distribution
+- **Concentration Analysis**: Gini coefficient, wealth distribution
+- **Growth Tracking**: Historical circulation changes
+- **Liquidity Metrics**: Active vs dormant holdings
+
+#### Sample CBUSD Flows Response:
+```json
+{
+  "success": true,
+  "data": {
+    "period": "daily",
+    "days": 30,
+    "summary": {
+      "total_inflow": 2500000.00,
+      "total_outflow": 2100000.00,
+      "net_flow": 400000.00,
+      "inflow_count": 1250,
+      "outflow_count": 980
+    },
+    "circulation": {
+      "total_supply": 15000000.00,
+      "holders_count": 2850,
+      "avg_balance": 5263.16,
+      "max_balance": 150000.00
+    },
+    "velocity_metrics": {
+      "velocity": 0.45,
+      "period_days": 30
+    },
+    "reserve_metrics": {
+      "total_backing_value": 15200000.00,
+      "reserve_ratio": 101.33,
+      "backing_currencies": [...]
+    },
+    "health_indicators": {
+      "circulation_growth_rate": 2.5,
+      "velocity": 0.45,
+      "reserve_ratio": 101.33,
+      "backing_diversity": 3,
+      "flow_stability": 15000.0
+    }
+  }
+}
+```
+
+### Analytics Query Parameters Guide
+
+#### Common Parameters:
+- `period`: Time grouping (`hourly`, `daily`, `weekly`, `monthly`, `yearly`)
+- `currency`: Filter by specific currency (`NGN`, `GBP`, `USD`, `CBUSD`)
+- `days`: Number of days to analyze (default: 30)
+- `transactionType`: Filter by transaction type (`app_transfer`, `deposit`, `withdrawal`, `mint`, `burn`, `bank_to_bank`)
+
+#### Admin-Only Parameters:
+- `userId`: Analyze specific user's data (spending patterns only)
+- `months`: Number of months for comparison (monthly-comparison endpoint)
+
+#### Response Features:
+- **Inflow/Outflow Analysis**: All endpoints include inflow vs outflow metrics by transaction type
+- **Growth Rates**: Period-over-period percentage changes
+- **Success Rates**: Transaction completion ratios
+- **Currency Flows**: Volume and count by currency and transaction type
+- **Market Share**: Currency distribution percentages
+- **Time Series Data**: Trends over specified periods
+- **CBUSD Health Metrics**: Circulation, velocity, reserve ratios, and stability indicators
+
+#### Sample Response Structure:
+```json
+{
+  "success": true,
+  "data": {
+    "period": "daily",
+    "filters": { "currency": "NGN", "days": 30 },
+    "summary": {
+      "total_transactions": 1250,
+      "total_volume": 15000000.00,
+      "total_fees": 75000.00,
+      "average_success_rate": 0.96
+    },
+    "inflow_outflow": {
+      "inflow": {
+        "total_volume": 8000000.00,
+        "total_count": 800,
+        "by_currency": [...]
+      },
+      "outflow": {
+        "total_volume": 7000000.00,
+        "total_count": 450,
+        "by_currency": [...]
+      },
+      "net_flow": 1000000.00
+    },
+    "trends": [...],
+    "currency_breakdown": [...]
+  }
+}
 ```
 
 ## 7. USSD Endpoints
@@ -926,6 +1170,40 @@ REDIS_URL=redis://localhost:6379
 JWT_SECRET=your_jwt_secret_here
 FLUTTERWAVE_SECRET_HASH=your_flutterwave_hash
 ```
+
+## Currency and Country Code Mapping
+
+The API automatically handles currency-to-country mappings for transactions:
+
+### Currency to Country Code Mapping:
+- **NGN** → **+234** (Nigeria)
+- **GBP** → **+44** (United Kingdom)  
+- **USD** → **+1** (United States)
+- **CBUSD** → **null** (Universal/borderless token - uses user's actual country)
+
+### Transaction Types and Currency Logic:
+1. **Send Money** (`/transactions/send`):
+   - Explicitly specify both `currency_from` and `currency_to`
+   - Country codes use actual user locations (not derived from currency)
+   - Supports all currency combinations including CBUSD
+
+2. **Bank Withdrawals** (`/transactions/app-to-bank`):
+   - `currency_from` = "CBUSD" (automatic)
+   - `currency_to` = value from `currency` field
+   - `sender_country_code` = user's actual country
+   - `recipient_country_code` = determined from target currency (null for CBUSD)
+
+3. **Bank Deposits** (`/transactions/bank-to-app`):
+   - `currency_from` = value from `currency` field
+   - `currency_to` = "CBUSD" (automatic)
+   - `sender_country_code` = determined from source currency (null for CBUSD)
+   - `recipient_country_code` = user's actual country
+
+### High Value Transaction Thresholds:
+- **NGN**: 50,000 NGN
+- **GBP**: £50
+- **USD**: $60
+- **CBUSD**: 60 CBUSD
 
 ## Notes
 

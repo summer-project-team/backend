@@ -3,7 +3,7 @@ const transactionService = require('../services/transaction');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
-const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
+const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS, TRANSACTION_LIMITS, getHighValueThreshold, getCurrencyCountryCode } = require('../utils/constants');
 const pricingService = require('../services/pricingService');
 const phoneService = require('../services/phoneService');
 const retryService = require('../services/retryService');
@@ -121,6 +121,8 @@ const sendMoney = asyncHandler(async (req, res, next) => {
     recipient_phone, 
     recipient_country_code,
     amount, 
+    currency_from,
+    currency_to,
     narration,
     two_factor_code,
     transaction_pin,
@@ -133,6 +135,18 @@ const sendMoney = asyncHandler(async (req, res, next) => {
   // Validate input
   if (!recipient_phone || !recipient_country_code || !amount) {
     return next(new AppError('Recipient phone, country code, and amount are required', 400));
+  }
+
+  // Default to CBUSD if not provided for backward compatibility
+  const fromCurrency = currency_from || 'CBUSD';
+  const toCurrency = currency_to || 'CBUSD';
+  
+  // Validate currencies
+  if (!SUPPORTED_CURRENCIES.includes(fromCurrency) && fromCurrency !== 'CBUSD') {
+    return next(new AppError(`Unsupported currency: ${fromCurrency}`, 400));
+  }
+  if (!SUPPORTED_CURRENCIES.includes(toCurrency) && toCurrency !== 'CBUSD') {
+    return next(new AppError(`Unsupported currency: ${toCurrency}`, 400));
   }
   
   const amountValue = parseFloat(amount);
@@ -217,19 +231,21 @@ const sendMoney = asyncHandler(async (req, res, next) => {
         sender_country_code: senderCountryCode,
         recipient_country_code: recipientCountryCode,
         amount: amountValue,
-        source_currency: 'CBUSD',
-        target_currency: 'CBUSD',
+        currency_from: fromCurrency,
+        currency_to: toCurrency,
+        source_currency: fromCurrency,
+        target_currency: toCurrency,
         exchange_rate: 1.0, // No conversion needed
         fee: feeAmount,
         status: 'processing',
         transaction_type: 'app_transfer',
         metadata: JSON.stringify({
           narration: narration || null,
-          high_value: amountValue > HIGH_VALUE_THRESHOLD,
+          high_value: amountValue > getHighValueThreshold(fromCurrency),
           two_factor_verified: !!two_factor_code,
           sender_name: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim(),
           recipient_name: `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim(),
-          transfer_type: 'cbusd_to_cbusd'
+          transfer_type: `${fromCurrency.toLowerCase()}_to_${toCurrency.toLowerCase()}`
         }),
         reference_id: generateTransactionReference(),
         created_at: new Date()
@@ -532,9 +548,11 @@ const performCBUSDSettlement = async (userId, amount, currency, cbusdAmount, ref
     recipient_id: userId,
     sender_phone: null,
     recipient_phone: user?.phone_number || null,
-    sender_country_code: null,
+    sender_country_code: getCurrencyCountryCode(currency) || null,
     recipient_country_code: user?.country_code || 'NG',
     amount: amount,
+    currency_from: currency.toUpperCase(),
+    currency_to: 'CBUSD',
     source_currency: currency,
     target_currency: 'CBUSD',
     exchange_rate: cbusdAmount / amount,
@@ -547,7 +565,9 @@ const performCBUSDSettlement = async (userId, amount, currency, cbusdAmount, ref
       original_amount: amount,
       original_currency: currency,
       cbusd_credited: cbusdAmount,
-      demo_mode: true
+      demo_mode: true,
+      high_value: parseFloat(amount) > getHighValueThreshold(currency.toUpperCase()),
+      transfer_type: `${currency.toLowerCase()}_to_cbusd`
     }
   });
 
@@ -685,10 +705,12 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
         sender_phone: req.user.phone_number,
         recipient_phone: null,
         sender_country_code: req.user.country_code || 'NG',
-        recipient_country_code: null,
+        recipient_country_code: getCurrencyCountryCode(currency) || null,
         amount: parseFloat(amount),
         source_currency: 'CBUSD',
         target_currency: currency.toUpperCase(),
+        currency_from: 'CBUSD',
+        currency_to: currency.toUpperCase(),
         exchange_rate: cbusdRate,
         fee: feeAmount,
         transaction_type: 'withdrawal',
@@ -697,7 +719,9 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
           bank_name,
           account_holder_name,
           conversion_type: 'cbusd_to_bank',
-          cbusd_burned: cbusdRequired
+          cbusd_burned: cbusdRequired,
+          high_value: parseFloat(amount) > getHighValueThreshold(currency.toUpperCase()),
+          transfer_type: `cbusd_to_${currency.toLowerCase()}`
         }
       });
 

@@ -6,7 +6,14 @@ const {
   getPerformanceMetrics,
   getSystemStatus,
   getFraudIndicators,
-  getDashboardData
+  getDashboardData,
+  getSpendingPatterns,
+  getTransactionTrends,
+  getSummary,
+  getMonthlyComparison,
+  getCurrencyDistribution,
+  getCBUSDFlows,
+  getCBUSDCirculation
 } = require('../controllers/analyticsController');
 const { protect, restrictTo } = require('../middleware/auth');
 
@@ -18,6 +25,15 @@ router.use(protect);
 // Basic analytics endpoints
 router.get('/volume', getVolumeData);
 router.get('/corridor/:fromCurrency/:toCurrency', getCorridorAnalytics);
+router.get('/spending-patterns', getSpendingPatterns);
+router.get('/transaction-trends', getTransactionTrends);
+router.get('/summary', getSummary);
+router.get('/monthly-comparison', getMonthlyComparison);
+router.get('/currency-distribution', getCurrencyDistribution);
+
+// CBUSD-specific analytics endpoints
+router.get('/cbusd-flows', getCBUSDFlows);
+router.get('/cbusd-circulation', getCBUSDCirculation);
 
 // Admin-only endpoints
 router.get('/user-activity', restrictTo('admin'), getUserActivity);

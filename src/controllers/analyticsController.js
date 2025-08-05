@@ -143,6 +143,187 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
   }
 });
 
+/**
+ * @desc    Get user spending patterns
+ * @route   GET /api/analytics/spending-patterns
+ * @access  Private
+ */
+const getSpendingPatterns = asyncHandler(async (req, res, next) => {
+  const { period, currency, days, userId } = req.query;
+  
+  try {
+    const options = {
+      period,
+      currency,
+      days: days ? parseInt(days) : 30,
+      userId: userId || req.user?.id // Allow filtering by current user or specified user
+    };
+    
+    const spendingPatterns = await analyticsService.getSpendingPatterns(options);
+    
+    res.status(200).json({
+      success: true,
+      data: spendingPatterns
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get spending patterns: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get transaction trends
+ * @route   GET /api/analytics/transaction-trends
+ * @access  Private
+ */
+const getTransactionTrends = asyncHandler(async (req, res, next) => {
+  const { period, currency, transactionType, days } = req.query;
+  
+  try {
+    const options = {
+      period,
+      currency,
+      transactionType,
+      days: days ? parseInt(days) : 30
+    };
+    
+    const trends = await analyticsService.getTransactionTrends(options);
+    
+    res.status(200).json({
+      success: true,
+      data: trends
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get transaction trends: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get analytics summary
+ * @route   GET /api/analytics/summary
+ * @access  Private
+ */
+const getSummary = asyncHandler(async (req, res, next) => {
+  const { period, currency, days } = req.query;
+  
+  try {
+    const options = {
+      period,
+      currency,
+      days: days ? parseInt(days) : 30
+    };
+    
+    const summary = await analyticsService.getSummary(options);
+    
+    res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get analytics summary: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get monthly comparison analytics
+ * @route   GET /api/analytics/monthly-comparison
+ * @access  Private
+ */
+const getMonthlyComparison = asyncHandler(async (req, res, next) => {
+  const { months, currency } = req.query;
+  
+  try {
+    const options = {
+      months: months ? parseInt(months) : 6,
+      currency
+    };
+    
+    const comparison = await analyticsService.getMonthlyComparison(options);
+    
+    res.status(200).json({
+      success: true,
+      data: comparison
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get monthly comparison: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get currency distribution analytics
+ * @route   GET /api/analytics/currency-distribution
+ * @access  Private
+ */
+const getCurrencyDistribution = asyncHandler(async (req, res, next) => {
+  const { period, transactionType, days } = req.query;
+  
+  try {
+    const options = {
+      period,
+      transactionType,
+      days: days ? parseInt(days) : 30
+    };
+    
+    const distribution = await analyticsService.getCurrencyDistribution(options);
+    
+    res.status(200).json({
+      success: true,
+      data: distribution
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get currency distribution: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get CBUSD inflow and outflow analytics
+ * @route   GET /api/analytics/cbusd-flows
+ * @access  Private
+ */
+const getCBUSDFlows = asyncHandler(async (req, res, next) => {
+  const { period, days } = req.query;
+  
+  try {
+    const options = {
+      period,
+      days: days ? parseInt(days) : 30
+    };
+    
+    const flows = await analyticsService.getCBUSDFlows(options);
+    
+    res.status(200).json({
+      success: true,
+      data: flows
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get CBUSD flows: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Get CBUSD circulation analytics
+ * @route   GET /api/analytics/cbusd-circulation
+ * @access  Private
+ */
+const getCBUSDCirculation = asyncHandler(async (req, res, next) => {
+  const { period, days } = req.query;
+  
+  try {
+    const options = {
+      period,
+      days: days ? parseInt(days) : 30
+    };
+    
+    const circulation = await analyticsService.getCBUSDCirculation(options);
+    
+    res.status(200).json({
+      success: true,
+      data: circulation
+    });
+  } catch (error) {
+    return next(new AppError(`Failed to get CBUSD circulation: ${error.message}`, 500));
+  }
+});
+
 module.exports = {
   getVolumeData,
   getCorridorAnalytics,
@@ -150,5 +331,12 @@ module.exports = {
   getPerformanceMetrics,
   getSystemStatus,
   getFraudIndicators,
-  getDashboardData
+  getDashboardData,
+  getSpendingPatterns,
+  getTransactionTrends,
+  getSummary,
+  getMonthlyComparison,
+  getCurrencyDistribution,
+  getCBUSDFlows,
+  getCBUSDCirculation
 }; 
