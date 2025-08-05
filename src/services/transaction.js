@@ -40,23 +40,6 @@ async createTransaction(transactionData) {
   
   // Begin transaction
   const transaction = await knex.transaction(async (trx) => {
-    console.log('=== DEBUG: About to insert transaction ===');
-    console.log('exchangeRate:', exchangeRate);
-    console.log('typeof exchangeRate:', typeof exchangeRate);
-    console.log('transactionData.exchange_rate:', transactionData.exchange_rate);
-    console.log('Full insert data:', {
-      id: transactionId,
-      sender_id: transactionData.sender_id,
-      recipient_id: transactionData.recipient_id,
-      amount: transactionData.amount,
-      source_currency: transactionData.source_currency,
-      target_currency: transactionData.target_currency,
-      exchange_rate: exchangeRate,
-      fee: transactionData.fee,
-      transaction_type: transactionData.transaction_type,
-      reference_id: reference
-    });
-
     // Create the transaction record with 'initiated' status
     const [createdTransaction] = await trx('transactions').insert({
       id: transactionId,

@@ -25,6 +25,10 @@ yarn-error.log*
 /coverage
 /.nyc_output
 test-results/
+/sh
+sh/
+tests/
+/tests
 
 # Build output
 /dist

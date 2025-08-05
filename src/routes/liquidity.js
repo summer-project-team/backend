@@ -20,14 +20,14 @@ router.use(restrictTo('admin'));
 // Pool routes
 router.get('/pools', getAllPools);
 router.get('/pools/:currency', getPoolStatus);
-router.post('/pools/:currency/update', updatePool);
+router.post('/pools/:currency/update', validate(schemas.updatePool), updatePool);
 
 // Alert routes
 router.get('/alerts', getAlerts);
-router.post('/alerts/:id/resolve', resolveAlert);
+router.post('/alerts/:id/resolve', validate(schemas.resolveAlert), resolveAlert);
 
 // Rebalance routes
 router.get('/rebalance/recommendations', getRebalanceRecommendations);
-router.post('/rebalance/execute', executeRebalance);
+router.post('/rebalance/execute', validate(schemas.executeRebalance), executeRebalance);
 
 module.exports = router; 

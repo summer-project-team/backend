@@ -5,6 +5,7 @@ const {
   forecastTransactionVolume,
   getCorridorForecasts
 } = require('../controllers/mlController');
+const { validate, schemas } = require('../middleware/validation');
 const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,7 +14,7 @@ const router = express.Router();
 router.use(protect);
 
 // Public ML endpoints for authenticated users
-router.post('/optimal-fee', predictOptimalFee);
+router.post('/optimal-fee', validate(schemas.optimalFee), predictOptimalFee);
 
 // Admin-only ML endpoints
 router.get('/liquidity-forecast/:fromCurrency/:toCurrency', restrictTo('admin'), getLiquidityForecast);

@@ -136,10 +136,10 @@ const lookupUser = asyncHandler(async (req, res, next) => {
  * @access  Private
  */
 const validatePhone = asyncHandler(async (req, res, next) => {
-  const { phone, country_code } = req.body;
+  const { phone_number, country_code } = req.body;
   
   // Validate phone number format
-  const phoneValidation = phoneService.validatePhoneNumber(phone, country_code);
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
   
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));

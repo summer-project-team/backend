@@ -1,6 +1,7 @@
 const bankingService = require('../services/bankingService');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
+const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const asyncHandler = require('express-async-handler');
 
 /**
@@ -13,9 +14,8 @@ const linkAccount = asyncHandler(async (req, res, next) => {
   const { account_number, bank_code, bank_name, account_name, account_type, currency } = req.body;
   
   // Validate currency
-  const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
   
   try {
@@ -78,16 +78,15 @@ const verifyDeposit = asyncHandler(async (req, res, next) => {
   const { account_id, amount, currency } = req.body;
   
   // Validate currency
-  const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
   
   try {
     // Get user wallet
     const wallet = await Wallet.findByUserId(userId);
     if (!wallet) {
-      return next(new AppError('Wallet not found', 404));
+      return next(new AppError(ERROR_MESSAGES.WALLET_NOT_FOUND, HTTP_STATUS.NOT_FOUND));
     }
     
     // Process deposit

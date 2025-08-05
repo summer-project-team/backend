@@ -48,36 +48,6 @@ const blacklistToken = async (token) => {
 };
 
 /**
- * Validate and format phone number
- * @param {string} phoneNumber - Phone number to validate
- * @param {string} countryCode - Country code (e.g., 'NG', 'GB', 'US')
- * @returns {Object} Validation result
- */
-const validatePhoneNumber = (phoneNumber, countryCode) => {
-  try {
-    const parsedNumber = parsePhoneNumberFromString(phoneNumber, countryCode);
-    
-    if (!parsedNumber || !parsedNumber.isValid()) {
-      return {
-        isValid: false,
-        message: 'Invalid phone number',
-      };
-    }
-    
-    return {
-      isValid: true,
-      formattedNumber: parsedNumber.formatInternational(),
-      e164Format: parsedNumber.format('E.164'),
-    };
-  } catch (error) {
-    return {
-      isValid: false,
-      message: 'Error validating phone number',
-    };
-  }
-};
-
-/**
  * Generate deterministic wallet address from phone number
  * @param {string} phoneNumber - E.164 formatted phone number
  * @returns {string} Wallet address
@@ -119,7 +89,6 @@ module.exports = {
   generateToken,
   generateRefreshToken,
   blacklistToken,
-  validatePhoneNumber,
   generateWalletAddress,
   generateVerificationCode,
   formatCurrency,

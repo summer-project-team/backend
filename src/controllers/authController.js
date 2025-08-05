@@ -5,12 +5,12 @@ const {
   generateToken, 
   generateRefreshToken, 
   blacklistToken,
-  validatePhoneNumber,
   generateWalletAddress,
   generateVerificationCode
 } = require('../utils/helpers');
 const { setCache, getCache } = require('../utils/redis');
 const phoneService = require('../services/phoneService');
+const phoneVerificationService = require('../services/phoneVerificationService');
 const asyncHandler = require('express-async-handler');
 
 /**
@@ -22,7 +22,7 @@ const register = asyncHandler(async (req, res, next) => {
   const { phone_number, country_code, email, password, first_name, last_name } = req.body;
   
   // Validate phone number
-  const phoneValidation = validatePhoneNumber(phone_number, country_code);
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));
   }
@@ -61,21 +61,43 @@ const register = asyncHandler(async (req, res, next) => {
   // Create phone wallet mapping
   await Wallet.createPhoneMapping(phoneValidation.e164Format, user.id, wallet.id);
   
-  // Generate verification code
-  const verificationCode = generateVerificationCode();
-  
-  // Store verification code in Redis (expires in 10 minutes)
-  await setCache(`verify_${phoneValidation.e164Format}`, verificationCode, 10 * 60);
-  
-  // Send verification SMS (mock)
-  await phoneService.sendVerificationSMS(phoneValidation.e164Format, verificationCode);
-  
+  // Send verification code using production-ready service
+  const verificationResult = await phoneVerificationService.sendVerificationCode(
+    phoneValidation.e164Format,
+    'register',
+    {
+      metadata: {
+        user_id: user.id,
+        registration_time: new Date().toISOString()
+      }
+    }
+  );
+
+  if (!verificationResult.success) {
+    // If SMS fails, we should still allow the user to exist but mark as unverified
+    console.error('Failed to send verification SMS:', verificationResult.error);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully, but verification SMS failed. Please request a new verification code.',
+      user_id: user.id,
+      phone_number: user.phone_number,
+      requires_verification: true,
+      sms_error: verificationResult.message
+    });
+  }
+
   res.status(201).json({
     success: true,
     message: 'User registered successfully. Please verify your phone number.',
     user_id: user.id,
     phone_number: user.phone_number,
     requires_verification: true,
+    verification: {
+      expires_in: verificationResult.expiresIn,
+      resend_cooldown: verificationResult.resendCooldown,
+      attempts_remaining: verificationResult.attemptsRemaining
+    }
   });
 });
 
@@ -88,38 +110,41 @@ const verifyPhone = asyncHandler(async (req, res, next) => {
   const { phone_number, country_code, verification_code } = req.body;
   
   // Validate phone number
-  const phoneValidation = validatePhoneNumber(phone_number, country_code);
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));
   }
   
-  // Get stored verification code
-  const storedCode = await getCache(`verify_${phoneValidation.e164Format}`);
-  console.log("============================================================", storedCode);
-  
-  if (!storedCode || storedCode !== verification_code) {
-    return next(new AppError('Invalid or expired verification code', 400));
+  try {
+    // Use production-ready verification service
+    const verificationResult = await phoneVerificationService.verifyCode(
+      phoneValidation.e164Format,
+      verification_code
+    );
+    
+    if (!verificationResult.success) {
+      return next(new AppError(verificationResult.message, 400));
+    }
+    
+    // Find user
+    const user = await User.findByPhone(phoneValidation.e164Format, country_code);
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+    
+    // Generate tokens
+    const token = generateToken({ id: user.id, phone_number: user.phone_number, country_code: user.country_code });
+    const refreshToken = generateRefreshToken({ id: user.id });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Phone verified successfully',
+      token,
+      refresh_token: refreshToken,
+    });
+  } catch (error) {
+    return next(new AppError('Verification failed: ' + error.message, 500));
   }
-  
-  // Find user
-  const user = await User.findByPhone(phoneValidation.e164Format, country_code);
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
-  
-  // Clear verification code
-  await setCache(`verify_${phoneValidation.e164Format}`, null);
-  
-  // Generate tokens
-  const token = generateToken({ id: user.id, phone_number: user.phone_number, country_code: user.country_code });
-  const refreshToken = generateRefreshToken({ id: user.id });
-  
-  res.status(200).json({
-    success: true,
-    message: 'Phone verified successfully',
-    token,
-    refresh_token: refreshToken,
-  });
 });
 
 /**
@@ -131,7 +156,7 @@ const login = asyncHandler(async (req, res, next) => {
   const { phone_number, country_code, password } = req.body;
   
   // Validate phone number
-  const phoneValidation = validatePhoneNumber(phone_number, country_code);
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));
   }
@@ -236,9 +261,69 @@ const logout = asyncHandler(async (req, res, next) => {
   });
 });
 
+/**
+ * @desc    Resend verification code
+ * @route   POST /api/auth/resend-verification
+ * @access  Public
+ */
+const resendVerificationCode = asyncHandler(async (req, res, next) => {
+  const { phone_number, country_code } = req.body;
+  
+  // Validate phone number
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
+  if (!phoneValidation.isValid) {
+    return next(new AppError(phoneValidation.message, 400));
+  }
+  
+  try {
+    const result = await phoneVerificationService.sendVerificationCode(phoneValidation.e164Format);
+    
+    if (!result.success) {
+      return next(new AppError(result.message, 429));
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Verification code sent successfully',
+      nextResendAvailable: result.nextResendAvailable,
+      provider: result.provider
+    });
+  } catch (error) {
+    return next(new AppError('Failed to send verification code: ' + error.message, 500));
+  }
+});
+
+/**
+ * @desc    Get verification status
+ * @route   GET /api/auth/verification-status/:phone_number/:country_code
+ * @access  Public
+ */
+const getVerificationStatus = asyncHandler(async (req, res, next) => {
+  const { phone_number, country_code } = req.params;
+  
+  // Validate phone number
+  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
+  if (!phoneValidation.isValid) {
+    return next(new AppError(phoneValidation.message, 400));
+  }
+  
+  try {
+    const status = await phoneVerificationService.getVerificationStatus(phoneValidation.e164Format);
+    
+    res.status(200).json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    return next(new AppError('Failed to get verification status: ' + error.message, 500));
+  }
+});
+
 module.exports = {
   register,
   verifyPhone,
+  resendVerificationCode,
+  getVerificationStatus,
   login,
   refreshToken,
   logout,

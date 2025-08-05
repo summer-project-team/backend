@@ -3,9 +3,11 @@ const transactionService = require('../services/transaction');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
+const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const pricingService = require('../services/pricingService');
 const phoneService = require('../services/phoneService');
 const retryService = require('../services/retryService');
+const securityService = require('../services/securityService');
 const { notifyTransactionUpdate } = require('../utils/websocket');
 const asyncHandler = require('express-async-handler');
 const knex = require('knex')(require('../../knexfile')[process.env.NODE_ENV || 'development']);
@@ -110,59 +112,6 @@ const verifyRateLock = asyncHandler(async (req, res, next) => {
 });
 
 /**
- * Helper function to verify two-factor authentication code
- * @param {string} userId - User ID
- * @param {string} code - 2FA code
- * @returns {Promise<boolean>} - Whether code is valid
- */
-const verifyTwoFactorCode = async (userId, code) => {
-  try {
-    // This would call your actual 2FA verification service
-    // For now, we'll simulate a successful verification
-    
-    // In a real implementation, you would:
-    // 1. Retrieve the user's TOTP secret
-    // 2. Verify the code against the secret
-    // 3. Check if the code has been used before (prevent replay attacks)
-    
-    // Simulate verification delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // For demo, we'll consider any 6-digit code valid
-    return /^\d{6}$/.test(code);
-  } catch (error) {
-    console.error('Error verifying 2FA code:', error);
-    return false;
-  }
-};
-
-/**
- * Helper function to verify device fingerprint
- * @param {string} userId - User ID
- * @param {string} fingerprintHash - Device fingerprint hash
- * @returns {Promise<boolean>} - Whether device is recognized
- */
-const verifyDeviceFingerprint = async (userId, fingerprintHash) => {
-  try {
-    // This would call your actual device verification service
-    // For now, we'll simulate a successful verification
-    
-    // In a real implementation, you would:
-    // 1. Check if the fingerprint is in the user's list of trusted devices
-    // 2. If not, consider this a new device and possibly require additional verification
-    
-    // Simulate verification delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // For demo purposes, accept all device fingerprints
-    return true;
-  } catch (error) {
-    console.error('Error verifying device fingerprint:', error);
-    return false;
-  }
-};
-
-/**
  * @desc    Send CBUSD to another user (Pure CBUSD Transfer)
  * @route   POST /api/transactions/send
  * @access  Private
@@ -174,7 +123,8 @@ const sendMoney = asyncHandler(async (req, res, next) => {
     amount, 
     narration,
     two_factor_code,
-    transaction_pin
+    transaction_pin,
+    pin  // Accept both pin and transaction_pin for flexibility
   } = req.body;
   
   const senderId = req.user.id;
@@ -190,47 +140,43 @@ const sendMoney = asyncHandler(async (req, res, next) => {
     return next(new AppError('Amount must be greater than 0', 400));
   }
   
-  // Check if user has PIN enabled and verify it
-  const pinEnabled = await User.hasPinEnabled(senderId);
-  if (pinEnabled) {
-    if (!transaction_pin) {
-      return next(new AppError('Transaction PIN is required', 400));
-    }
-    
-    const pinVerification = await User.verifyTransactionPin(senderId, transaction_pin);
-    if (!pinVerification.valid) {
-      return next(new AppError(pinVerification.error || 'Invalid transaction PIN', 400));
-    }
+  // Use either pin or transaction_pin, for backward compatibility
+  const userPin = pin || transaction_pin;
+  
+  // Validate transaction PIN using security service
+  const pinValidation = await securityService.validateTransactionPin(senderId, userPin);
+  if (!pinValidation.valid) {
+    return next(new AppError(pinValidation.error || ERROR_MESSAGES.INVALID_PIN, HTTP_STATUS.BAD_REQUEST));
   }
   
   // Validate recipient phone number
   const phoneValidation = phoneService.validatePhoneNumber(recipient_phone, recipient_country_code);
   if (!phoneValidation.isValid) {
-    return next(new AppError(phoneValidation.message, 400));
+    return next(new AppError(phoneValidation.message, HTTP_STATUS.BAD_REQUEST));
   }
   
   // Check if recipient exists
   const recipient = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
   if (!recipient) {
-    return next(new AppError('Recipient not found. They need to create a CrossBridge account first.', 404));
+    return next(new AppError('Recipient not found. They need to create a CrossBridge account first.', HTTP_STATUS.NOT_FOUND));
   }
   
   // Prevent sending to self
   if (recipient.id === senderId) {
-    return next(new AppError('Cannot send money to yourself', 400));
+    return next(new AppError('Cannot send money to yourself', HTTP_STATUS.BAD_REQUEST));
   }
   
-  // Check for high-value transaction 2FA requirement
-  const HIGH_VALUE_THRESHOLD = 500; // $500 CBUSD equivalent
-  if (amountValue > HIGH_VALUE_THRESHOLD && !two_factor_code) {
-    return next(new AppError('Two-factor authentication required for transfers above $500 CBUSD', 400));
+  // Get security requirements for this transfer
+  const securityReqs = securityService.getSecurityRequirements(amountValue, 'CBUSD', 'transfer');
+  if (securityReqs.requiresTwoFactor && !two_factor_code) {
+    return next(new AppError(`Two-factor authentication required for transfers above $${securityReqs.threshold} CBUSD`, HTTP_STATUS.BAD_REQUEST));
   }
   
   // Verify 2FA if provided
   if (two_factor_code) {
-    const twoFactorValid = await verifyTwoFactorCode(senderId, two_factor_code);
+    const twoFactorValid = await securityService.verifyTwoFactorCode(senderId, two_factor_code);
     if (!twoFactorValid) {
-      return next(new AppError('Invalid two-factor code', 401));
+      return next(new AppError('Invalid two-factor code', HTTP_STATUS.UNAUTHORIZED));
     }
   }
   
@@ -430,21 +376,18 @@ const initiateDeposit = asyncHandler(async (req, res, next) => {
   const { amount, currency } = req.body;
   const userId = req.user.id;
   
-  console.log(`Starting deposit for user ${userId}: ${amount} ${currency}`);
-  
   // Validate inputs
   if (!amount || amount <= 0) {
-    return next(new AppError('Valid amount is required', 400));
+    return next(new AppError('Valid amount is required', HTTP_STATUS.BAD_REQUEST));
   }
   
   if (!currency) {
-    return next(new AppError('Currency is required', 400));
+    return next(new AppError('Currency is required', HTTP_STATUS.BAD_REQUEST));
   }
   
   // Validate currency
-  const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
 
   // Generate unique reference code
@@ -454,8 +397,6 @@ const initiateDeposit = asyncHandler(async (req, res, next) => {
   const bankAccountId = `ACC_${userId.substr(-8)}_${currency}`;
   
   try {
-    console.log('Creating bank deposit reference...');
-    
     // Check if bank_deposit_references table exists, if not create a simple record
     let depositRef;
     try {
@@ -687,28 +628,20 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
   } = req.body;
 
   // Validate currency
-  const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
 
-  // Check if user has PIN enabled and verify it
-  const pinEnabled = await User.hasPinEnabled(userId);
-  if (pinEnabled) {
-    if (!transaction_pin) {
-      return next(new AppError('Transaction PIN is required', 400));
-    }
-    
-    const pinVerification = await User.verifyTransactionPin(userId, transaction_pin);
-    if (!pinVerification.valid) {
-      return next(new AppError(pinVerification.error || 'Invalid transaction PIN', 400));
-    }
+  // Validate transaction PIN using security service
+  const pinValidation = await securityService.validateTransactionPin(userId, transaction_pin);
+  if (!pinValidation.valid) {
+    return next(new AppError(pinValidation.error || ERROR_MESSAGES.INVALID_PIN, HTTP_STATUS.BAD_REQUEST));
   }
 
-  // Get user wallet
+  // Get wallet and check balance
   const wallet = await Wallet.findByUserId(userId);
   if (!wallet) {
-    return next(new AppError('Wallet not found', 404));
+    return next(new AppError(ERROR_MESSAGES.WALLET_NOT_FOUND, HTTP_STATUS.NOT_FOUND));
   }
 
   // Calculate CBUSD equivalent needed
@@ -719,26 +652,21 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
 
   // Check CBUSD balance
   if (wallet.cbusd_balance < cbusdRequired) {
-    return next(new AppError('Insufficient CBUSD balance', 400));
+    return next(new AppError(ERROR_MESSAGES.INSUFFICIENT_BALANCE, HTTP_STATUS.BAD_REQUEST));
   }
 
-  // For high value withdrawals, require 2FA
-  const highValueThresholds = {
-    'NGN': 1_000_000,
-    'USD': 1000,
-    'GBP': 1000
-  };
+  // Get security requirements for this transaction
+  const securityReqs = securityService.getSecurityRequirements(parseFloat(amount), currency, 'withdrawal');
   
-  const threshold = highValueThresholds[currency.toUpperCase()] || 1000;
-  if (parseFloat(amount) > threshold) {
+  if (securityReqs.requiresTwoFactor) {
     if (!two_factor_code) {
-      return next(new AppError(`Two-factor authentication required for withdrawals above ${threshold.toLocaleString()} ${currency.toUpperCase()}`, 400));
+      return next(new AppError(`Two-factor authentication required for withdrawals above ${securityReqs.threshold.toLocaleString()} ${currency.toUpperCase()}`, HTTP_STATUS.BAD_REQUEST));
     }
     
     // Verify 2FA code
-    const twoFactorValid = await verifyTwoFactorCode(userId, two_factor_code);
+    const twoFactorValid = await securityService.verifyTwoFactorCode(userId, two_factor_code);
     if (!twoFactorValid) {
-      return next(new AppError('Invalid two-factor code', 401));
+      return next(new AppError('Invalid two-factor code', HTTP_STATUS.UNAUTHORIZED));
     }
   }
 

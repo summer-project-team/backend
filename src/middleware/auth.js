@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const User = require('../models/User');
 const { AppError } = require('./errorHandler');
+const { ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const asyncHandler = require('express-async-handler');
 const { db } = require('../utils/database');
 
@@ -18,7 +19,7 @@ exports.protect = asyncHandler(async (req, res, next) => {
 
   // Check if token exists
   if (!token) {
-    return next(new AppError('Not authorized to access this route', 401));
+    return next(new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED));
   }
 
   try {

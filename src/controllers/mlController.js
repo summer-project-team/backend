@@ -40,10 +40,6 @@ const getLiquidityForecast = asyncHandler(async (req, res, next) => {
 const predictOptimalFee = asyncHandler(async (req, res, next) => {
   const { from_currency, to_currency, amount } = req.body;
   
-  if (!from_currency || !to_currency || !amount) {
-    return next(new AppError('From currency, to currency, and amount are required', 400));
-  }
-  
   try {
     // Get user profile for personalization
     const userProfile = {

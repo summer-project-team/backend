@@ -51,6 +51,11 @@ const schemas = {
     verification_code: Joi.string().required().length(6),
   }),
   
+  resendVerification: Joi.object({
+    phone_number: Joi.string().required(),
+    country_code: Joi.string().required(),
+  }),
+  
   // Transaction schemas
   quote: Joi.object({
     amount: Joi.number().required().positive(),
@@ -133,6 +138,14 @@ const schemas = {
       .optional()
       .messages({
         'string.pattern.base': 'Transaction PIN must be 4 digits'
+      }),
+      
+    // Accept both 'pin' and 'transaction_pin' for backward compatibility
+    pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'PIN must be 4 digits'
       }),
       
     two_factor_code: Joi.string()
@@ -264,10 +277,46 @@ const schemas = {
   }),
   
   validatePhone: Joi.object({
-    phone: Joi.string().required(),
+    phone_number: Joi.string().required(),
     country_code: Joi.string().required(),
   }),
   
+  // PIN management schemas
+  setupPin: Joi.object({
+    pin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+      'string.pattern.base': 'PIN must be exactly 4 digits',
+      'string.length': 'PIN must be exactly 4 digits'
+    }),
+    confirmPin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('pin')).messages({
+      'string.pattern.base': 'PIN confirmation must be exactly 4 digits',
+      'string.length': 'PIN confirmation must be exactly 4 digits',
+      'any.only': 'PIN confirmation must match PIN'
+    }),
+  }),
+  
+  verifyPin: Joi.object({
+    pin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+      'string.pattern.base': 'PIN must be exactly 4 digits',
+      'string.length': 'PIN must be exactly 4 digits'
+    }),
+  }),
+  
+  changePin: Joi.object({
+    currentPin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+      'string.pattern.base': 'Current PIN must be exactly 4 digits',
+      'string.length': 'Current PIN must be exactly 4 digits'
+    }),
+    newPin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+      'string.pattern.base': 'New PIN must be exactly 4 digits',
+      'string.length': 'New PIN must be exactly 4 digits'
+    }),
+    confirmNewPin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('newPin')).messages({
+      'string.pattern.base': 'PIN confirmation must be exactly 4 digits',
+      'string.length': 'PIN confirmation must be exactly 4 digits',
+      'any.only': 'PIN confirmation must match new PIN'
+    }),
+  }),
+
   // Banking schemas
   linkAccount: Joi.object({
     account_number: Joi.string().required(),
@@ -286,8 +335,9 @@ const schemas = {
   
   burn: Joi.object({
     amount: Joi.number().required().positive(),
-    currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
-  }),
+    currency: Joi.string().valid('NGN', 'GBP', 'USD').optional(),
+    target_currency: Joi.string().valid('NGN', 'GBP', 'USD').optional(),
+  }).or('currency', 'target_currency'),
   
   transfer: Joi.object({
     recipient_phone: Joi.string().required(),
@@ -441,6 +491,64 @@ const schemas = {
   updateFraudAlert: Joi.object({
     status: Joi.string().valid('open', 'investigating', 'resolved', 'false_positive').required(),
     resolution: Joi.string().allow('', null)
+  }),
+
+  // USSD schemas
+  ussdSession: Joi.object({
+    phone_number: Joi.string().required().min(10).max(15),
+    session_id: Joi.string().required(),
+    text: Joi.string().allow(''),
+    network_code: Joi.string().required(),
+  }),
+
+  ussdInitiate: Joi.object({
+    phone_number: Joi.string().required().min(10).max(15),
+    network_code: Joi.string().required(),
+    ussd_code: Joi.string().required(),
+  }),
+
+  ussdStatus: Joi.object({
+    sessionId: Joi.string().uuid().required()
+  }),
+
+  ussdCallback: Joi.object({
+    session_id: Joi.string().required(),
+    phone_number: Joi.string().required(),
+    text: Joi.string().allow(''),
+    network_code: Joi.string().required(),
+    status: Joi.string().valid('active', 'timeout', 'terminated').optional(),
+  }),
+
+  // Liquidity schemas
+  updatePool: Joi.object({
+    amount: Joi.number().required().messages({
+      'number.base': 'Amount must be a number',
+      'any.required': 'Amount is required'
+    }),
+    reason: Joi.string().optional().max(255)
+  }),
+
+  resolveAlert: Joi.object({
+    resolution_notes: Joi.string().optional().max(500)
+  }),
+
+  executeRebalance: Joi.object({
+    source_currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
+    target_currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
+    amount: Joi.number().required().positive(),
+    reason: Joi.string().optional().max(255)
+  }),
+
+  // ML schemas
+  optimalFee: Joi.object({
+    from_currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
+    to_currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
+    amount: Joi.number().required().positive()
+  }),
+
+  demandPrediction: Joi.object({
+    currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
+    prediction_hours: Joi.number().optional().min(1).max(168).default(24)
   }),
 };
 

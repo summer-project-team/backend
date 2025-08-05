@@ -8,6 +8,7 @@ const { setCache, getCache } = require('../utils/redis'); // FIXED: Use helper f
 const pricingService = require('../services/pricingService');
 const ExchangeRate = require('../models/ExchangeRate');
 const transactionService = require('../services/transaction');
+const ussdService = require('../services/ussdService');
 
 /**
  * USSD Controller for handling USSD session requests
@@ -434,11 +435,20 @@ const handleMenuNavigation = async (user, text, session, sessionKey) => {
   }
   else if (session.step === 'send_money_confirm') {
     if (text === '1') {
-      // Process transfer (simplified for example)
-      return {
-        message: 'Transfer initiated. You will receive an SMS confirmation.',
-        end_session: true
-      };
+      // Process actual transfer using USSD service
+      try {
+        const result = await ussdService.processUSSDTransaction(sessionId, session);
+        return {
+          message: result.message,
+          end_session: true
+        };
+      } catch (error) {
+        console.error('USSD transaction error:', error);
+        return {
+          message: 'Transfer failed. Please try again or contact support.',
+          end_session: true
+        };
+      }
     } else {
       return {
         message: 'Transfer cancelled.',
@@ -783,6 +793,95 @@ const getUserTransactionPatterns = async (userId) => {
   }
 };
 
+/**
+ * @desc    Initiate USSD session
+ * @route   POST /api/ussd/initiate
+ * @access  Public (Restricted by network operator)
+ */
+const initiateUssdSession = asyncHandler(async (req, res, next) => {
+  const { phone_number, network_code, ussd_code } = req.body;
+
+  try {
+    const result = await ussdService.initiateSession(phone_number, network_code, ussd_code);
+    
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        session_id: result.session_id,
+        user_id: result.user_id,
+        message: result.message,
+        end_session: false
+      });
+    } else {
+      res.status(200).json({
+        success: false,
+        message: result.message,
+        end_session: result.end_session
+      });
+    }
+  } catch (error) {
+    console.error('USSD initiation error:', error);
+    res.status(200).json({
+      success: false,
+      message: 'Service temporarily unavailable. Please try again.',
+      end_session: true
+    });
+  }
+});
+
+/**
+ * @desc    Get USSD session status
+ * @route   GET /api/ussd/status/:sessionId
+ * @access  Public (Restricted by network operator)
+ */
+const getUssdStatus = asyncHandler(async (req, res, next) => {
+  const { sessionId } = req.params;
+
+  try {
+    const status = await ussdService.getSessionStatus(sessionId);
+    
+    res.status(200).json({
+      success: status.exists,
+      data: status
+    });
+  } catch (error) {
+    console.error('USSD status check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking session status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @desc    Handle telecom provider callback
+ * @route   POST /api/ussd/callback
+ * @access  Public (Restricted by network operator)
+ */
+const handleProviderCallback = asyncHandler(async (req, res, next) => {
+  const callbackData = req.body;
+
+  try {
+    const result = await ussdService.handleProviderCallback(callbackData);
+    
+    res.status(200).json({
+      success: result.success,
+      message: result.message,
+      session_id: result.session_id
+    });
+  } catch (error) {
+    console.error('Provider callback error:', error);
+    res.status(200).json({
+      success: false,
+      message: 'Callback processing failed'
+    });
+  }
+});
+
 module.exports = {
-  processUssdSession
+  processUssdSession,
+  initiateUssdSession,
+  getUssdStatus,
+  handleProviderCallback
 };

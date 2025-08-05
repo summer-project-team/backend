@@ -1,6 +1,7 @@
 const cbusdService = require('../services/cbusdService');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
+const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const asyncHandler = require('express-async-handler');
 const phoneService = require('../services/phoneService');
 
@@ -14,9 +15,8 @@ const mintCBUSD = asyncHandler(async (req, res, next) => {
   const { amount, currency } = req.body;
   
   // Validate currency
-  const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
   
   try {
@@ -69,12 +69,15 @@ const mintCBUSD = asyncHandler(async (req, res, next) => {
  */
 const burnCBUSD = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
-  const { amount, currency } = req.body;
+  const { amount, currency, target_currency } = req.body;
+  
+  // Use target_currency if provided, otherwise fall back to currency
+  const targetCurrency = target_currency || currency;
   
   // Validate currency
   const validCurrencies = ['NGN', 'GBP', 'USD'];
-  if (!validCurrencies.includes(currency.toUpperCase())) {
-    return next(new AppError('Invalid currency', 400));
+  if (!validCurrencies.includes(targetCurrency.toUpperCase())) {
+    return next(new AppError('Invalid target currency', 400));
   }
   
   try {
@@ -94,13 +97,13 @@ const burnCBUSD = asyncHandler(async (req, res, next) => {
       userId,
       wallet.id,
       parseFloat(amount),
-      currency.toUpperCase()
+      targetCurrency.toUpperCase()
     );
     
     // Add to fiat balance
     await Wallet.updateBalance(
       wallet.id,
-      currency.toLowerCase(),
+      targetCurrency.toLowerCase(),
       parseFloat(amount)
     );
     

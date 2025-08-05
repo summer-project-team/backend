@@ -38,9 +38,9 @@ router.post('/:id/restore', restoreUser); // Restore deleted user (admin only)
 
 // PIN management routes
 router.get('/pin/status', getPinStatus); // Get PIN enabled status
-router.post('/pin/setup', setupTransactionPin); // Set transaction PIN
-router.post('/pin/verify', verifyTransactionPin); // Verify transaction PIN
-router.put('/pin/change', changeTransactionPin); // Change transaction PIN
+router.post('/pin/setup', validate(schemas.setupPin), setupTransactionPin); // Set transaction PIN
+router.post('/pin/verify', validate(schemas.verifyPin), verifyTransactionPin); // Verify transaction PIN
+router.put('/pin/change', validate(schemas.changePin), changeTransactionPin); // Change transaction PIN
 router.delete('/pin', disableTransactionPin); // Disable transaction PIN
 
 module.exports = router; 

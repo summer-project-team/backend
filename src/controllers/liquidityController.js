@@ -49,10 +49,6 @@ const updatePool = asyncHandler(async (req, res, next) => {
   const { currency } = req.params;
   const { amount, reason } = req.body;
   
-  if (!amount) {
-    return next(new AppError('Amount is required', 400));
-  }
-  
   try {
     const updatedPool = await liquidityService.updatePoolBalance(
       currency,
