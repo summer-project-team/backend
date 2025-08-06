@@ -1,11 +1,12 @@
 // migrations/20250803_initial_complete_schema.js
-exports.up = function(knex) {
-  return knex.schema
-    // Create uuid extension
-    .raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-    
-    // Users table
-    .createTable('users', function(table) {
+exports.up = async function(knex) {
+  // Create uuid extension
+  await knex.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+  
+  // Check and create tables only if they don't exist
+  const hasUsers = await knex.schema.hasTable('users');
+  if (!hasUsers) {
+    await knex.schema.createTable('users', function(table) {
       table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
       table.string('phone_number', 255).notNullable().unique();
       table.string('country_code', 255).notNullable();
@@ -25,10 +26,13 @@ exports.up = function(knex) {
       
       table.index(['phone_number', 'country_code']);
       table.index('deleted_at');
-    })
+    });
+  }
     
-    // Wallets table
-    .createTable('wallets', function(table) {
+  // Wallets table
+  const hasWallets = await knex.schema.hasTable('wallets');
+  if (!hasWallets) {
+    await knex.schema.createTable('wallets', function(table) {
       table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
       table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
       table.decimal('balance_ngn', 20, 2).defaultTo('0').notNullable();
@@ -39,10 +43,13 @@ exports.up = function(knex) {
       table.timestamps(true, true);
       
       table.index('wallet_address');
-    })
+    });
+  }
     
-    // Transactions table
-    .createTable('transactions', function(table) {
+  // Transactions table
+  const hasTransactions = await knex.schema.hasTable('transactions');
+  if (!hasTransactions) {
+    await knex.schema.createTable('transactions', function(table) {
       table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
       table.uuid('sender_id').references('id').inTable('users');
       table.uuid('recipient_id').references('id').inTable('users');
@@ -421,3 +428,4 @@ exports.down = function(knex) {
     .dropTableIfExists('users')
     .raw('DROP EXTENSION IF EXISTS "uuid-ossp"');
 };
+}
