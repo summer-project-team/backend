@@ -48,7 +48,6 @@ const path = require('path'); // Added for express.static
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
-const passwordResetRoutes = require('./routes/passwordReset');
 const adminRoutes = require('./routes/admin');
 const healthRoutes = require('./routes/health');
 
@@ -73,6 +72,7 @@ const aliasRoutes = require('./routes/alias');
 const websocketRoutes = require('./routes/websocket');
 const walletRoutes = require('./routes/wallet');
 const dashboardRoutes = require('./routes/dashboard');
+const webhookRoutes = require('./routes/webhook');
 
 // Initialize database connection
 const { initializeDatabase } = require('./utils/database');
@@ -177,6 +177,7 @@ app.use('/api/security', securityRoutes);
 app.use('/api/websocket', websocketRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Temporary debug registration route
 app.post('/api/auth/register-debug', async (req, res) => {

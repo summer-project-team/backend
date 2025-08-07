@@ -28,6 +28,9 @@ const transactionLimiter = createRateLimiter(30, 15, 'Too many transaction reque
 const lookupLimiter = createRateLimiter(20, 15, 'Too many lookup requests, please try again after 15 minutes');
 const ussdLimiter = createRateLimiter(50, 15, 'Too many USSD requests, please try again after 15 minutes');
 
+// Strict rate limiter for password reset attempts
+const passwordResetLimiter = createRateLimiter(3, 60, 'Too many password reset attempts, please try again after 1 hour');
+
 module.exports = {
   createRateLimiter,
   apiLimiter,
@@ -35,4 +38,5 @@ module.exports = {
   transactionLimiter,
   lookupLimiter,
   ussdLimiter,
+  passwordResetLimiter,
 }; 

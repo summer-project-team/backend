@@ -35,13 +35,85 @@ const sendPasswordResetEmail = async (to, resetToken) => {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
       to,
-      subject: 'Password Reset Request',
+      subject: 'CrossBridge - Password Reset Request',
       html: `
-        <h1>Password Reset Request</h1>
-        <p>You requested a password reset. Click the link below to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Password Reset Request</h1>
+          </div>
+          
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #ddd;">
+            <p style="font-size: 16px; margin-bottom: 20px;">
+              You have requested to reset your password for your CrossBridge account.
+            </p>
+            
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #667eea;">Security Notice:</p>
+              <p style="margin: 10px 0 0 0; font-size: 14px;">
+                This reset link will expire in <strong>15 minutes</strong> for your security.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        font-weight: bold; 
+                        font-size: 16px; 
+                        display: inline-block;
+                        transition: transform 0.2s;">
+                Reset Your Password
+              </a>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #856404;">
+                <strong>Important:</strong> If you didn't request this password reset, please ignore this email. 
+                Your account remains secure and no changes have been made.
+              </p>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="font-size: 12px; color: #666; margin: 0;">
+                If the button above doesn't work, copy and paste this link into your browser:<br>
+                <span style="word-break: break-all; color: #667eea;">${resetUrl}</span>
+              </p>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+              <p style="font-size: 12px; color: #999; margin: 0;">
+                This email was sent by CrossBridge. If you have questions, contact our support team.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      // Text version for email clients that don't support HTML
+      text: `
+Password Reset Request
+
+You have requested to reset your password for your CrossBridge account.
+
+To reset your password, click on the following link (valid for 15 minutes):
+${resetUrl}
+
+If you didn't request this password reset, please ignore this email.
+
+If the link doesn't work, copy and paste it into your browser.
+
+--
+CrossBridge Team
       `
     };
 

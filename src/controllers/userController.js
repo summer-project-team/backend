@@ -2,7 +2,7 @@ const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
 const asyncHandler = require('express-async-handler');
-const phoneService = require('../services/phoneService');
+const phoneManagementService = require('../services/phoneManagementService');
 const Transaction = require('../models/Transaction');
 const transactionService = require('../services/transaction');
 const knex = require('knex')(require('../../knexfile')[process.env.NODE_ENV || 'development']);
@@ -107,13 +107,13 @@ const lookupUser = asyncHandler(async (req, res, next) => {
   const { phone_number, country_code } = req.body;
   
   // Validate phone number
-  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
+  const phoneValidation = phoneManagementService.validatePhoneNumber(phone_number, country_code);
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));
   }
   
   // Lookup user
-  const user = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+  const user = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
   
   if (!user) {
     return next(new AppError('User not found', 404));
@@ -139,14 +139,14 @@ const validatePhone = asyncHandler(async (req, res, next) => {
   const { phone_number, country_code } = req.body;
   
   // Validate phone number format
-  const phoneValidation = phoneService.validatePhoneNumber(phone_number, country_code);
+  const phoneValidation = phoneManagementService.validatePhoneNumber(phone_number, country_code);
   
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, 400));
   }
   
   // Check if user exists
-  const user = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+  const user = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
   
   const response = {
     success: true,
@@ -489,30 +489,59 @@ const verifyTransactionPin = asyncHandler(async (req, res, next) => {
  */
 const changeTransactionPin = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
-  const { currentPin, newPin, confirmNewPin } = req.body;
+  // Updated to use snake_case field names to match validation schema
+  const { current_pin, new_pin, confirm_new_pin } = req.body;
   
   // Validate new PIN
-  if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+  if (!new_pin || new_pin.length !== 4 || !/^\d{4}$/.test(new_pin)) {
     return next(new AppError('New PIN must be exactly 4 digits', 400));
   }
   
-  if (newPin !== confirmNewPin) {
+  if (new_pin !== confirm_new_pin) {
     return next(new AppError('New PIN confirmation does not match', 400));
   }
   
   // Verify current PIN
-  const verification = await User.verifyTransactionPin(userId, currentPin);
+  const verification = await User.verifyTransactionPin(userId, current_pin);
   if (!verification.valid) {
     return next(new AppError(verification.error || 'Invalid current PIN', 400));
   }
   
   // Set new PIN
-  await User.setTransactionPin(userId, newPin);
+  await User.setTransactionPin(userId, new_pin);
   
   res.status(200).json({
     success: true,
     message: 'Transaction PIN changed successfully'
   });
+
+/**
+ * @desc    Set transaction PIN
+ * @route   POST /api/users/pin/setup
+ * @access  Private
+ */
+const setupTransactionPin = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  // Updated to use snake_case field names to match validation schema
+  const { pin, confirm_pin } = req.body;
+  
+  // Validate PIN
+  if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    return next(new AppError('PIN must be exactly 4 digits', 400));
+  }
+  
+  if (pin !== confirm_pin) {
+    return next(new AppError('PIN confirmation does not match', 400));
+  }
+  
+  // Set the PIN
+  await User.setTransactionPin(userId, pin);
+  
+  res.status(200).json({
+    success: true,
+    message: 'Transaction PIN set successfully'
+  });
+});
 });
 
 /**

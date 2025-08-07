@@ -3,7 +3,7 @@
  * Provides endpoints for ML-based predictive features
  */
 const { AppError } = require('../middleware/errorHandler');
-const mlPredictiveService = require('../services/mlPredictiveService');
+const intelligenceService = require('../services/intelligenceService');
 const asyncHandler = require('express-async-handler');
 
 /**
@@ -16,7 +16,7 @@ const getLiquidityForecast = asyncHandler(async (req, res, next) => {
   const { hours, confidence } = req.query;
   
   try {
-    const forecast = await mlPredictiveService.generateLiquidityForecast(
+    const forecast = await intelligenceService.generateLiquidityForecast(
       fromCurrency,
       toCurrency,
       hours ? parseInt(hours) : 48,
@@ -73,7 +73,7 @@ const predictOptimalFee = asyncHandler(async (req, res, next) => {
       }
     }
     
-    const feeStructure = await mlPredictiveService.predictOptimalFee(
+    const feeStructure = await intelligenceService.predictOptimalFee(
       from_currency,
       to_currency,
       parseFloat(amount),
@@ -99,7 +99,7 @@ const forecastTransactionVolume = asyncHandler(async (req, res, next) => {
   const { days } = req.query;
   
   try {
-    const forecast = await mlPredictiveService.forecastTransactionVolume(
+    const forecast = await intelligenceService.forecastTransactionVolume(
       fromCurrency,
       toCurrency,
       days ? parseInt(days) : 7
@@ -132,7 +132,7 @@ const getCorridorForecasts = asyncHandler(async (req, res, next) => {
     // Get forecasts for each corridor
     const forecasts = await Promise.all(
       corridors.map(async (corridor) => {
-        const forecast = await mlPredictiveService.generateLiquidityForecast(
+        const forecast = await intelligenceService.generateLiquidityForecast(
           corridor.from,
           corridor.to,
           24, // 24-hour forecast

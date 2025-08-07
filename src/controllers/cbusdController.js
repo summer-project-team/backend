@@ -3,7 +3,7 @@ const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
 const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const asyncHandler = require('express-async-handler');
-const phoneService = require('../services/phoneService');
+const phoneManagementService = require('../services/phoneManagementService');
 
 /**
  * @desc    Mint CBUSD tokens
@@ -164,13 +164,13 @@ const transferCBUSD = asyncHandler(async (req, res, next) => {
   
   try {
     // Validate recipient phone number
-    const phoneValidation = phoneService.validatePhoneNumber(recipient_phone, recipient_country_code);
+    const phoneValidation = phoneManagementService.validatePhoneNumber(recipient_phone, recipient_country_code);
     if (!phoneValidation.isValid) {
       return next(new AppError(phoneValidation.message, 400));
     }
     
     // Lookup recipient by phone
-    const recipient = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+    const recipient = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
     if (!recipient) {
       return next(new AppError('Recipient not found', 404));
     }

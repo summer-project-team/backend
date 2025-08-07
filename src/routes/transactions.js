@@ -4,6 +4,8 @@ const {
   sendMoney, 
   getTransactionHistory, 
   getTransaction,
+  createDepositIntent,
+  createWithdrawalIntent,
   initiateDeposit,
   initiateWithdrawal,
   lockRate,
@@ -30,7 +32,11 @@ router.post('/:id/retry', retryTransaction);
 router.get('/history', getTransactionHistory);
 router.get('/:id', getTransaction);
 
-// CBUSD-Bank operations (mocked data for now)
+// Enhanced payment provider integration
+router.post('/deposit/create', validate(schemas.createDeposit), createDepositIntent);
+router.post('/withdrawal/create', validate(schemas.createWithdrawal), createWithdrawalIntent);
+
+// Legacy CBUSD-Bank operations (backward compatibility)
 router.post('/bank-to-app', validate(schemas.bankToApp), initiateDeposit);
 router.post('/app-to-bank', validate(schemas.appToBank), initiateWithdrawal);
 

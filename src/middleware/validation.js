@@ -287,30 +287,30 @@ const schemas = {
       'string.pattern.base': 'PIN must be exactly 4 digits',
       'string.length': 'PIN must be exactly 4 digits'
     }),
-    confirmPin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('pin')).messages({
+    confirm_pin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('pin')).messages({
       'string.pattern.base': 'PIN confirmation must be exactly 4 digits',
       'string.length': 'PIN confirmation must be exactly 4 digits',
       'any.only': 'PIN confirmation must match PIN'
     }),
   }),
   
-  verifyPin: Joi.object({
+  verify_pin: Joi.object({
     pin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
       'string.pattern.base': 'PIN must be exactly 4 digits',
       'string.length': 'PIN must be exactly 4 digits'
     }),
   }),
   
-  changePin: Joi.object({
-    currentPin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+  change_pin: Joi.object({
+    current_pin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
       'string.pattern.base': 'Current PIN must be exactly 4 digits',
       'string.length': 'Current PIN must be exactly 4 digits'
     }),
-    newPin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
+    new_pin: Joi.string().required().length(4).pattern(/^\d{4}$/).messages({
       'string.pattern.base': 'New PIN must be exactly 4 digits',
       'string.length': 'New PIN must be exactly 4 digits'
     }),
-    confirmNewPin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('newPin')).messages({
+    confirm_new_pin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('new_pin')).messages({
       'string.pattern.base': 'PIN confirmation must be exactly 4 digits',
       'string.length': 'PIN confirmation must be exactly 4 digits',
       'any.only': 'PIN confirmation must match new PIN'
@@ -539,6 +539,18 @@ const schemas = {
     reason: Joi.string().optional().max(255)
   }),
 
+  // Password reset schemas
+  forgotPassword: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+  
+  resetPassword: Joi.object({
+    token: Joi.string().required().length(32),
+    password: Joi.string().required().min(8).pattern(
+      new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)')
+    ).message('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  }),
+
   // ML schemas
   optimalFee: Joi.object({
     from_currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
@@ -549,6 +561,242 @@ const schemas = {
   demandPrediction: Joi.object({
     currency: Joi.string().required().valid('NGN', 'GBP', 'USD'),
     prediction_hours: Joi.number().optional().min(1).max(168).default(24)
+  }),
+
+  // Enhanced payment provider integration schemas
+  createDeposit: Joi.object({
+    amount: Joi.number()
+      .positive()
+      .precision(2)
+      .min(1)
+      .max(1000000)
+      .required()
+      .messages({
+        'number.base': 'Amount must be a number',
+        'number.positive': 'Amount must be positive',
+        'number.min': 'Minimum deposit amount is 1',
+        'number.max': 'Maximum deposit amount is 1,000,000',
+        'any.required': 'Amount is required'
+      }),
+    
+    currency: Joi.string()
+      .valid('NGN', 'USD', 'GBP', 'EUR')
+      .uppercase()
+      .required()
+      .messages({
+        'any.only': 'Currency must be one of: NGN, USD, GBP, EUR',
+        'any.required': 'Currency is required'
+      }),
+
+    payment_method: Joi.string()
+      .valid('auto', 'stripe', 'flutterwave', 'bank_transfer')
+      .default('auto')
+      .optional()
+      .messages({
+        'any.only': 'Payment method must be one of: auto, stripe, flutterwave, bank_transfer'
+      })
+  }),
+
+  createWithdrawal: Joi.object({
+    amount: Joi.number()
+      .positive()
+      .precision(2)
+      .min(10)
+      .max(10000000)
+      .required()
+      .messages({
+        'number.base': 'Amount must be a number',
+        'number.positive': 'Amount must be positive',
+        'number.min': 'Minimum withdrawal amount is 10',
+        'number.max': 'Maximum withdrawal amount is 10,000,000',
+        'any.required': 'Amount is required'
+      }),
+    
+    currency: Joi.string()
+      .valid('NGN', 'USD', 'GBP')
+      .uppercase()
+      .required()
+      .messages({
+        'any.only': 'Currency must be one of: NGN, USD, GBP',
+        'any.required': 'Currency is required'
+      }),
+    
+    bank_account_number: Joi.string()
+      .pattern(/^[0-9A-Za-z]{8,34}$/) // Support IBAN format for international accounts
+      .required()
+      .messages({
+        'string.pattern.base': 'Bank account number must be 8-34 alphanumeric characters',
+        'any.required': 'Bank account number is required'
+      }),
+
+    bank_code: Joi.string()
+      .min(2)
+      .max(20)
+      .required()
+      .messages({
+        'string.min': 'Bank code must be at least 2 characters',
+        'string.max': 'Bank code cannot exceed 20 characters',
+        'any.required': 'Bank code (routing number/sort code) is required'
+      }),
+    
+    bank_name: Joi.string()
+      .min(2)
+      .max(100)
+      .required()
+      .messages({
+        'string.min': 'Bank name must be at least 2 characters',
+        'string.max': 'Bank name cannot exceed 100 characters',
+        'any.required': 'Bank name is required'
+      }),
+    
+    account_holder_name: Joi.string()
+      .min(2)
+      .max(100)
+      .pattern(/^[a-zA-Z\s.''-]+$/)
+      .required()
+      .messages({
+        'string.min': 'Account holder name must be at least 2 characters',
+        'string.max': 'Account holder name cannot exceed 100 characters',
+        'string.pattern.base': 'Account holder name can only contain letters, spaces, dots, apostrophes, and hyphens',
+        'any.required': 'Account holder name is required'
+      }),
+    
+    transaction_pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Transaction PIN must be 4 digits',
+        'any.required': 'Transaction PIN is required'
+      }),
+    
+    two_factor_code: Joi.string()
+      .pattern(/^[0-9]{6}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'Two-factor code must be 6 digits'
+      })
+  }),
+
+  // Bank transfer schema (legacy support)
+  bankTransfer: Joi.object({
+    amount: Joi.number()
+      .positive()
+      .max(1000000)
+      .required()
+      .messages({
+        'number.positive': 'Amount must be positive',
+        'number.max': 'Amount cannot exceed 1,000,000',
+        'any.required': 'Amount is required'
+      }),
+    
+    currency: Joi.string()
+      .valid('USD', 'GBP', 'EUR', 'NGN', 'CBUSD')
+      .required()
+      .messages({
+        'any.only': 'Currency must be one of USD, GBP, EUR, NGN, or CBUSD',
+        'any.required': 'Currency is required'
+      }),
+    
+    recipient_account: Joi.string()
+      .min(10)
+      .max(20)
+      .required()
+      .messages({
+        'string.min': 'Account number must be at least 10 characters',
+        'string.max': 'Account number cannot exceed 20 characters',
+        'any.required': 'Recipient account number is required'
+      }),
+    
+    recipient_name: Joi.string()
+      .min(2)
+      .max(100)
+      .required()
+      .messages({
+        'string.min': 'Recipient name must be at least 2 characters',
+        'string.max': 'Recipient name cannot exceed 100 characters',
+        'any.required': 'Recipient name is required'
+      }),
+    
+    bank_code: Joi.string()
+      .min(3)
+      .max(10)
+      .required()
+      .messages({
+        'string.min': 'Bank code must be at least 3 characters',
+        'string.max': 'Bank code cannot exceed 10 characters',
+        'any.required': 'Bank code is required'
+      }),
+    
+    transaction_pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Transaction PIN must be 4 digits',
+        'any.required': 'Transaction PIN is required'
+      }),
+    
+    reference: Joi.string()
+      .max(100)
+      .optional()
+      .messages({
+        'string.max': 'Reference cannot exceed 100 characters'
+      })
+  }),
+
+  // Phone transfer schema
+  phoneTransfer: Joi.object({
+    recipient_phone: Joi.string()
+      .min(10)
+      .max(15)
+      .required()
+      .messages({
+        'string.min': 'Phone number must be at least 10 digits',
+        'string.max': 'Phone number cannot exceed 15 digits',
+        'any.required': 'Recipient phone number is required'
+      }),
+    
+    recipient_country_code: Joi.string()
+      .pattern(/^\+[1-9]\d{0,3}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Country code must be in format +1, +44, +234, etc.',
+        'any.required': 'Recipient country code is required'
+      }),
+    
+    amount: Joi.number()
+      .positive()
+      .precision(2)
+      .min(0.01)
+      .max(100000)
+      .required()
+      .messages({
+        'number.positive': 'Amount must be positive',
+        'number.min': 'Minimum transfer amount is 0.01 CBUSD',
+        'number.max': 'Maximum transfer amount is 100,000 CBUSD',
+        'any.required': 'Amount is required'
+      }),
+    
+    currency: Joi.string()
+      .valid('CBUSD', 'NGN', 'USD', 'GBP')
+      .default('CBUSD')
+      .messages({
+        'any.only': 'Currency must be one of CBUSD, NGN, USD, GBP'
+      }),
+    
+    narration: Joi.string()
+      .max(200)
+      .optional()
+      .messages({
+        'string.max': 'Narration cannot exceed 200 characters'
+      }),
+    
+    transaction_pin: Joi.string()
+      .pattern(/^[0-9]{4}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Transaction PIN must be 4 digits',
+        'any.required': 'Transaction PIN is required'
+      })
   }),
 };
 

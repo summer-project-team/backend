@@ -4,6 +4,7 @@ const transactionService = require('../services/transaction');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
 const flutterwaveService = require('../services/flutterwaveService');
+const enhancedWebhookService = require('../services/enhancedWebhookService');
 
 /**
  * @desc    Handle bank deposit webhook
@@ -77,30 +78,23 @@ const handleBankDeposit = asyncHandler(async (req, res) => {
  */
 const handleFlutterwaveWebhook = asyncHandler(async (req, res) => {
   try {
-    const signature = req.headers['verif-hash'];
-    const payload = JSON.stringify(req.body);
-    
-    // Verify webhook signature
-    if (!flutterwaveService.verifyWebhookSignature(signature, payload)) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid webhook signature'
-      });
-    }
-
     console.log('🔔 Flutterwave webhook received:', req.body.event);
     
-    // Process the webhook using the enhanced service
-    const result = await flutterwaveService.processDepositWebhook(req.body);
+    // Queue webhook for enhanced processing
+    const webhookId = await enhancedWebhookService.queueWebhook({
+      type: 'flutterwave',
+      event: req.body.event,
+      ...req.body
+    });
     
     res.status(200).json({
       success: true,
-      message: result.message,
-      data: result.data || null
+      message: 'Webhook queued for processing',
+      webhook_id: webhookId
     });
   } catch (error) {
     console.error('Flutterwave webhook error:', error);
-    res.status(500).json({
+    res.status(200).json({
       success: false,
       error: 'Webhook processing failed'
     });
@@ -168,6 +162,49 @@ const processDepositToApp = async (depositRef, amount, currency) => {
 };
 
 /**
+ * @desc    Handle Stripe webhook for USD/GBP payments
+ * @route   POST /api/webhooks/stripe
+ * @access  Public (but verified)
+ */
+const handleStripeWebhook = asyncHandler(async (req, res) => {
+  try {
+    const signature = req.headers['stripe-signature'];
+    const payload = JSON.stringify(req.body);
+    
+    // Import Stripe service
+    const stripeService = require('../services/stripeService');
+    
+    // Verify webhook signature
+    if (!stripeService.verifyWebhookSignature(signature, payload)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid Stripe webhook signature'
+      });
+    }
+
+    console.log('🔔 Stripe webhook received:', req.body.type);
+    
+    // Process the webhook using the Stripe service
+    const result = await stripeService.processPaymentWebhook(req.body);
+    
+    res.status(200).json({
+      success: true,
+      message: result.message || 'Stripe webhook processed',
+      data: result.data || null
+    });
+  } catch (error) {
+    console.error('Stripe webhook processing error:', error);
+    
+    // Always return 200 to prevent Stripe retries for application errors
+    res.status(200).json({
+      success: false,
+      error: 'Webhook received but processing failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Get CBUSD exchange rate for currency (same as in transaction controller)
  */
 const getCBUSDRate = async (currency) => {
@@ -182,6 +219,7 @@ const getCBUSDRate = async (currency) => {
 module.exports = {
   handleBankDeposit,
   handleFlutterwaveWebhook,
+  handleStripeWebhook,
   processDepositToApp,
   getCBUSDRate
 };

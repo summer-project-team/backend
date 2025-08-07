@@ -48,6 +48,24 @@ const blacklistToken = async (token) => {
 };
 
 /**
+ * Blacklist all tokens for a specific user (force logout all sessions)
+ * @param {string} userId - User ID to blacklist tokens for
+ * @returns {boolean} Success status
+ */
+const blacklistAllUserTokens = async (userId) => {
+  try {
+    // Set a timestamp for this user that invalidates all previous tokens
+    const timestamp = Math.floor(Date.now() / 1000);
+    await setCache(`user_token_invalidate:${userId}`, timestamp, 604800); // 7 days
+    
+    return true;
+  } catch (error) {
+    console.error('Error blacklisting user tokens:', error);
+    return false;
+  }
+};
+
+/**
  * Generate deterministic wallet address from phone number
  * @param {string} phoneNumber - E.164 formatted phone number
  * @returns {string} Wallet address
@@ -63,10 +81,21 @@ const generateWalletAddress = (phoneNumber) => {
 
 /**
  * Generate mock verification code (for demo purposes)
- * @returns {string} 6-digit verification code
+ * @param {number} length - Length of the code (default: 6)
+ * @returns {string} Verification code
  */
-const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+const generateVerificationCode = (length = 6) => {
+  if (length <= 10) {
+    // For shorter codes, use random numbers
+    return Math.floor(Math.random() * Math.pow(10, length))
+      .toString()
+      .padStart(length, '0');
+  } else {
+    // For longer codes (like reset tokens), use crypto
+    return crypto.randomBytes(Math.ceil(length / 2))
+      .toString('hex')
+      .slice(0, length);
+  }
 };
 
 /**
@@ -89,6 +118,7 @@ module.exports = {
   generateToken,
   generateRefreshToken,
   blacklistToken,
+  blacklistAllUserTokens,
   generateWalletAddress,
   generateVerificationCode,
   formatCurrency,

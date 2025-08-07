@@ -2,7 +2,7 @@
  * Transaction Service for enhanced transaction processing
  */
 const { v4: uuidv4 } = require('uuid');
-const knex = require('knex')(require('../../knexfile')[process.env.NODE_ENV || 'development']);
+const { db } = require('../utils/database');
 
 // Will be imported once WebSocket service is created
 let websocketService;
@@ -39,7 +39,7 @@ async createTransaction(transactionData) {
   const exchangeRate = (typeof transactionData.exchange_rate === 'number' && !isNaN(transactionData.exchange_rate)) ? transactionData.exchange_rate : 1.0;
   
   // Begin transaction
-  const transaction = await knex.transaction(async (trx) => {
+  const transaction = await db.transaction(async (trx) => {
     // Create the transaction record with 'initiated' status
     const [createdTransaction] = await trx('transactions').insert({
       id: transactionId,
@@ -95,7 +95,7 @@ async createTransaction(transactionData) {
    */
   async processTransaction(transactionId) {
     // Begin transaction
-    const transaction = await knex.transaction(async (trx) => {
+    const transaction = await db.transaction(async (trx) => {
       // Get transaction
       const [txn] = await trx('transactions')
         .where({ id: transactionId })
@@ -138,7 +138,7 @@ async createTransaction(transactionData) {
    */
 async completeTransaction(transactionId) {
   // Begin transaction
-  const transaction = await knex.transaction(async (trx) => {
+  const transaction = await db.transaction(async (trx) => {
     // Get transaction
     const txn = await trx('transactions').where({ id: transactionId }).first();
     
@@ -330,7 +330,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    */
   async failTransaction(transactionId, reason) {
     // Begin transaction
-    const transaction = await knex.transaction(async (trx) => {
+    const transaction = await db.transaction(async (trx) => {
       // Update transaction status
       const [updatedTxn] = await trx('transactions')
         .where({ id: transactionId })
@@ -384,7 +384,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    */
   async cancelTransaction(transactionId, reason) {
     // Begin transaction
-    const transaction = await knex.transaction(async (trx) => {
+    const transaction = await db.transaction(async (trx) => {
       // Get transaction
       const txn = await trx('transactions').where({ id: transactionId }).first();
       
@@ -444,7 +444,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    * @returns {Promise<Object>} - Transaction
    */
   async getTransaction(transactionId) {
-    const transaction = await knex('transactions').where({ id: transactionId }).first();
+    const transaction = await db('transactions').where({ id: transactionId }).first();
     
     if (!transaction) {
       throw new Error('Transaction not found');
@@ -459,7 +459,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    * @returns {Promise<Array>} - Transaction events
    */
   async getTransactionEvents(transactionId) {
-    const events = await knex('transaction_events')
+    const events = await db('transaction_events')
       .where({ transaction_id: transactionId })
       .orderBy('created_at', 'asc');
     
@@ -484,7 +484,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
     } = options;
 
     // Build query
-    let query = knex('transactions')
+    let query = db('transactions')
       .where(function() {
         this.where('sender_id', userId).orWhere('recipient_id', userId);
       });
@@ -512,7 +512,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
     const transactions = await query;
     
     // Get total count
-    const countQuery = knex('transactions')
+    const countQuery = db('transactions')
       .count('* as total')
       .where(function() {
         this.where('sender_id', userId).orWhere('recipient_id', userId);
@@ -554,7 +554,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
     const { recipient_phone, recipient_name, country_code } = recipientData;
     
     // Check if recipient already exists
-    const existingRecipient = await knex('saved_recipients')
+    const existingRecipient = await db('saved_recipients')
       .where({ 
         user_id: userId,
         recipient_phone
@@ -563,7 +563,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
     
     if (existingRecipient) {
       // Update existing recipient
-      const [updatedRecipient] = await knex('saved_recipients')
+      const [updatedRecipient] = await db('saved_recipients')
         .where({ id: existingRecipient.id })
         .update({
           recipient_name,
@@ -576,7 +576,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       return updatedRecipient;
     } else {
       // Create new recipient
-      const [newRecipient] = await knex('saved_recipients')
+      const [newRecipient] = await db('saved_recipients')
         .insert({
           id: uuidv4(),
           user_id: userId,
@@ -600,7 +600,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    * @returns {Promise<Array>} - Saved recipients
    */
   async getSavedRecipients(userId) {
-    const recipients = await knex('saved_recipients')
+    const recipients = await db('saved_recipients')
       .where({ user_id: userId })
       .orderBy([
         { column: 'is_favorite', order: 'desc' },
@@ -617,7 +617,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    * @returns {Promise<Object>} - Updated recipient
    */
   async toggleFavoriteRecipient(userId, recipientId) {
-    const recipient = await knex('saved_recipients')
+    const recipient = await db('saved_recipients')
       .where({ 
         id: recipientId,
         user_id: userId
@@ -628,7 +628,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       throw new Error('Recipient not found');
     }
     
-    const [updatedRecipient] = await knex('saved_recipients')
+    const [updatedRecipient] = await db('saved_recipients')
       .where({ id: recipientId })
       .update({
         is_favorite: !recipient.is_favorite,
@@ -646,7 +646,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
    * @returns {Promise<boolean>} - Success status
    */
   async deleteRecipient(userId, recipientId) {
-    const deleted = await knex('saved_recipients')
+    const deleted = await db('saved_recipients')
       .where({ 
         id: recipientId,
         user_id: userId
@@ -678,7 +678,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
     const recipientIdToUse = isRecipientBankUuid ? transferData.recipient_bank_id : uuidv4();
     
     // Begin transaction
-    const transaction = await knex.transaction(async (trx) => {
+    const transaction = await db.transaction(async (trx) => {
       // Create the transaction record with 'initiated' status
       const [createdTransaction] = await trx('transactions').insert({
         id: transactionId,
@@ -764,7 +764,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
         : transaction.metadata;
       
       // Create a record in bank_transactions_proxy table
-      await knex('bank_transactions_proxy').insert({
+      await db('bank_transactions_proxy').insert({
         transaction_id: transaction.id,
         sender_bank_id: metadata.sender_bank_id,
         recipient_bank_id: metadata.recipient_bank_id,
@@ -780,7 +780,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       });
       
       // Step 1: Convert from source currency to CBUSD
-      await knex('transaction_events').insert({
+      await db('transaction_events').insert({
         transaction_id: transaction.id,
         event_type: 'convert_to_cbusd',
         event_data: JSON.stringify({
@@ -792,7 +792,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       });
       
       // Step 2: Transfer CBUSD to recipient bank's pool
-      await knex('transaction_events').insert({
+      await db('transaction_events').insert({
         transaction_id: transaction.id,
         event_type: 'cbusd_transfer',
         event_data: JSON.stringify({
@@ -805,7 +805,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       
       // Step 3: Convert from CBUSD to target currency
       const convertedAmount = parseFloat(transaction.amount) * parseFloat(transaction.exchange_rate);
-      await knex('transaction_events').insert({
+      await db('transaction_events').insert({
         transaction_id: transaction.id,
         event_type: 'convert_from_cbusd',
         event_data: JSON.stringify({
@@ -817,7 +817,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       });
       
       // Step 4: Settle to recipient bank account
-      await knex('transaction_events').insert({
+      await db('transaction_events').insert({
         transaction_id: transaction.id,
         event_type: 'settlement',
         event_data: JSON.stringify({
@@ -834,7 +834,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       const completedTransaction = await this.completeTransaction(transaction.id);
       
       // Update bank_transactions_proxy record
-      await knex('bank_transactions_proxy').where({ transaction_id: transaction.id }).update({
+      await db('bank_transactions_proxy').where({ transaction_id: transaction.id }).update({
         status: 'completed',
         settled_amount: convertedAmount,
         completed_at: new Date(),
@@ -849,7 +849,7 @@ async updateWalletBalance(trx, userId, currency, amount) {
       await this.failTransaction(transaction.id, error.message);
       
       // Update bank_transactions_proxy record
-      await knex('bank_transactions_proxy').where({ transaction_id: transaction.id }).update({
+      await db('bank_transactions_proxy').where({ transaction_id: transaction.id }).update({
         status: 'failed',
         failure_reason: error.message,
         updated_at: new Date()

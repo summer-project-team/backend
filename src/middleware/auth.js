@@ -5,6 +5,7 @@ const { AppError } = require('./errorHandler');
 const { ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
 const asyncHandler = require('express-async-handler');
 const { db } = require('../utils/database');
+const { getCache } = require('../utils/redis');
 
 // Protect routes
 exports.protect = asyncHandler(async (req, res, next) => {
@@ -23,6 +24,12 @@ exports.protect = asyncHandler(async (req, res, next) => {
   }
 
   try {
+    // Check if token is blacklisted
+    const isBlacklisted = await getCache(`bl_${token}`);
+    if (isBlacklisted) {
+      return next(new AppError('Token has been invalidated', 401));
+    }
+
     // Verify token
     const decoded = await promisify(jwt.verify)(
       token,
@@ -35,10 +42,21 @@ exports.protect = asyncHandler(async (req, res, next) => {
       return next(new AppError('User no longer exists', 401));
     }
 
+    // Check if all user tokens have been invalidated (e.g., after password reset)
+    const userTokenInvalidateTime = await getCache(`user_token_invalidate:${user.id}`);
+    if (userTokenInvalidateTime && decoded.iat < parseInt(userTokenInvalidateTime)) {
+      return next(new AppError('Token has been invalidated due to security reasons', 401));
+    }
+
     // Grant access to protected route
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return next(new AppError('Invalid token', 401));
+    } else if (error.name === 'TokenExpiredError') {
+      return next(new AppError('Token has expired', 401));
+    }
     return next(new AppError('Not authorized to access this route', 401));
   }
 });

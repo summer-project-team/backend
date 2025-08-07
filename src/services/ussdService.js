@@ -5,7 +5,7 @@
 const { db } = require('../utils/database');
 const { setCache, getCache } = require('../utils/redis');
 const transactionService = require('./transaction');
-const phoneService = require('./phoneService');
+const phoneManagementService = require('./phoneManagementService');
 const pricingService = require('./pricingService');
 const { v4: uuidv4 } = require('uuid');
 
@@ -25,7 +25,7 @@ class USSDService {
   async initiateSession(phoneNumber, networkCode, ussdCode) {
     try {
       // Validate phone number
-      const phoneValidation = phoneService.validatePhoneNumber(phoneNumber, 'NG');
+      const phoneValidation = phoneManagementService.validatePhoneNumber(phoneNumber, 'NG');
       if (!phoneValidation.isValid) {
         return {
           success: false,
@@ -35,7 +35,7 @@ class USSDService {
       }
 
       // Check if user exists
-      const user = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+      const user = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
       if (!user) {
         return {
           success: false,
@@ -97,7 +97,7 @@ class USSDService {
       const { user_id, amount, recipient_phone } = sessionData.data;
 
       // Validate recipient
-      const recipientValidation = phoneService.validatePhoneNumber(recipient_phone, 'NG');
+      const recipientValidation = phoneManagementService.validatePhoneNumber(recipient_phone, 'NG');
       if (!recipientValidation.isValid) {
         return {
           success: false,
@@ -106,7 +106,7 @@ class USSDService {
         };
       }
 
-      const recipient = await phoneService.lookupUserByPhone(recipientValidation.e164Format);
+      const recipient = await phoneManagementService.lookupUserByPhone(recipientValidation.e164Format);
       if (!recipient) {
         return {
           success: false,

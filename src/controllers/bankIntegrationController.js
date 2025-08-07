@@ -1,4 +1,4 @@
-const bankIntegrationService = require('../services/bankIntegrationService');
+const paymentProcessingService = require('../services/paymentProcessingService');
 const pricingService = require('../services/pricingService');
 const { AppError } = require('../middleware/errorHandler');
 const asyncHandler = require('express-async-handler');
@@ -22,7 +22,7 @@ const registerBank = asyncHandler(async (req, res, next) => {
   
   try {
     // Register bank
-    const bank = await bankIntegrationService.registerBank({
+    const bank = await paymentProcessingService.registerBank({
       bank_name,
       bank_code,
       swift_code,
@@ -61,7 +61,7 @@ const getBankById = asyncHandler(async (req, res, next) => {
   
   try {
     // Get bank
-    const bank = await bankIntegrationService.getBankById(id);
+    const bank = await paymentProcessingService.getBankById(id);
     
     res.status(200).json({
       success: true,
@@ -88,7 +88,7 @@ const getBankById = asyncHandler(async (req, res, next) => {
 const listBanks = asyncHandler(async (req, res, next) => {
   try {
     // List banks
-    const banks = await bankIntegrationService.listBanks();
+    const banks = await paymentProcessingService.listBanks();
     
     res.status(200).json({
       success: true,
@@ -131,7 +131,7 @@ const processB2BTransfer = asyncHandler(async (req, res, next) => {
   
   try {
     // Process bank-to-bank transfer
-    const result = await bankIntegrationService.processBankToBank(
+    const result = await paymentProcessingService.processBankToBank(
       apiKey,
       apiSecret,
       {
@@ -185,14 +185,14 @@ const getB2BQuote = asyncHandler(async (req, res, next) => {
   
   try {
     // Verify bank credentials
-    const bankInfo = await bankIntegrationService.verifyBankCredentials(apiKey, apiSecret);
+    const bankInfo = await paymentProcessingService.verifyBankCredentials(apiKey, apiSecret);
     
     // Get recipient bank (just for the country code)
     const recipientBankCode = req.body.recipient_bank_code;
     let recipientBank;
     
     try {
-      recipientBank = await bankIntegrationService.getBankByCode(recipientBankCode);
+      recipientBank = await paymentProcessingService.getBankByCode(recipientBankCode);
     } catch (error) {
       // Default to a generic country code if bank not found
       recipientBank = { country_code: 'US' };
@@ -234,7 +234,7 @@ const getTransferStatus = asyncHandler(async (req, res, next) => {
   
   try {
     // Get transfer status
-    const status = await bankIntegrationService.getTransferStatus(apiKey, apiSecret, id);
+    const status = await paymentProcessingService.getTransferStatus(apiKey, apiSecret, id);
     
     res.status(200).json({
       success: true,
@@ -260,7 +260,7 @@ const verifyWebhook = asyncHandler(async (req, res, next) => {
   
   try {
     // Verify signature (implementation depends on how you generate signatures)
-    const isValid = bankIntegrationService.verifyWebhookSignature(
+    const isValid = paymentProcessingService.verifyWebhookSignature(
       signature,
       JSON.stringify(req.body)
     );
@@ -277,7 +277,7 @@ const verifyWebhook = asyncHandler(async (req, res, next) => {
     }
     
     // Update transaction status based on webhook
-    const result = await bankIntegrationService.processWebhookEvent(
+    const result = await paymentProcessingService.processWebhookEvent(
       transaction_id,
       status,
       metadata || {}
@@ -331,7 +331,7 @@ const processBatchTransfer = asyncHandler(async (req, res, next) => {
   
   try {
     // Process batch of transfers
-    const results = await bankIntegrationService.processBatchTransfer(
+    const results = await paymentProcessingService.processBatchTransfer(
       apiKey,
       apiSecret,
       batch_id,

@@ -96,6 +96,26 @@ class User {
   }
   
   /**
+   * Update user password
+   * @param {string} id - User ID
+   * @param {string} newPassword - New password
+   * @returns {Object} Updated user
+   */
+  static async updatePassword(id, newPassword) {
+    const password_hash = await bcrypt.hash(newPassword, 10);
+    
+    const [user] = await db('users')
+      .where({ id })
+      .update({
+        password_hash,
+        updated_at: db.fn.now(),
+      })
+      .returning(['id', 'email', 'first_name', 'last_name', 'updated_at']);
+    
+    return user;
+  }
+  
+  /**
    * Get user profile (without sensitive data)
    * @param {string} id - User ID
    * @returns {Object|null} User profile or null

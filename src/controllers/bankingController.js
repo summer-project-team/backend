@@ -1,4 +1,4 @@
-const bankingService = require('../services/bankingService');
+const paymentProcessingService = require('../services/paymentProcessingService');
 const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
 const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS } = require('../utils/constants');
@@ -20,7 +20,7 @@ const linkAccount = asyncHandler(async (req, res, next) => {
   
   try {
     // Link account
-    const account = await bankingService.linkBankAccount(userId, {
+    const account = await paymentProcessingService.linkBankAccount(userId, {
       account_number,
       bank_code,
       bank_name,
@@ -57,7 +57,7 @@ const getAccounts = asyncHandler(async (req, res, next) => {
   
   try {
     // Get accounts
-    const accounts = await bankingService.getUserBankAccounts(userId);
+    const accounts = await paymentProcessingService.getUserBankAccounts(userId);
     
     res.status(200).json({
       success: true,
@@ -90,7 +90,7 @@ const verifyDeposit = asyncHandler(async (req, res, next) => {
     }
     
     // Process deposit
-    const result = await bankingService.processDeposit(
+    const result = await paymentProcessingService.processDeposit(
       userId,
       account_id,
       parseFloat(amount),
@@ -130,7 +130,7 @@ const verifyAccount = asyncHandler(async (req, res, next) => {
   
   try {
     // Verify account
-    const result = await bankingService.verifyBankAccount(account_id);
+    const result = await paymentProcessingService.verifyBankAccount(account_id);
     
     res.status(200).json({
       success: true,
@@ -162,13 +162,13 @@ const removeAccount = asyncHandler(async (req, res, next) => {
   
   try {
     // Check if account exists and belongs to user
-    const account = await bankingService.getBankAccount(userId, accountId);
+    const account = await paymentProcessingService.getBankAccount(userId, accountId);
     if (!account) {
       return next(new AppError('Bank account not found', 404));
     }
     
     // Remove the account
-    await bankingService.removeBankAccount(userId, accountId);
+    await paymentProcessingService.removeBankAccount(userId, accountId);
     
     res.status(200).json({
       success: true,

@@ -3,7 +3,7 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { AppError } = require('../middleware/errorHandler');
 const asyncHandler = require('express-async-handler');
-const phoneService = require('../services/phoneService');
+const phoneManagementService = require('../services/phoneManagementService');
 const { setCache, getCache } = require('../utils/redis'); // FIXED: Use helper functions
 const pricingService = require('../services/pricingService');
 const ExchangeRate = require('../models/ExchangeRate');
@@ -138,37 +138,65 @@ const processUssdSession = asyncHandler(async (req, res, next) => {
     network_code 
   } = req.body;
   
-  // Validate phone number
+  console.log('USSD Session Request:', {
+    phone_number,
+    session_id,
+    text,
+    network_code
+  });
+  
+  // Validate phone number with improved normalization
   let normalizedNumber = phone_number;
   
-  // Handle different formats
+  // Handle different formats more robustly
   if (phone_number.startsWith('0')) {
-    // Convert local format (0812...) to international format
+    // Convert local format (0812...) to international format (234812...)
     normalizedNumber = '234' + phone_number.substring(1);
-  } else if (phone_number.startsWith('+')) {
-    // Remove the + prefix
+  } else if (phone_number.startsWith('+234')) {
+    // Remove the + prefix (+2348... -> 2348...)
     normalizedNumber = phone_number.substring(1);
+  } else if (phone_number.startsWith('+')) {
+    // Remove the + prefix for other countries
+    normalizedNumber = phone_number.substring(1);
+  } else if (phone_number.startsWith('234') && phone_number.length >= 13) {
+    // Already in correct format (234812...)
+    normalizedNumber = phone_number;
   }
   
+  console.log('Phone number normalization:', {
+    original: phone_number,
+    normalized: normalizedNumber
+  });
+  
   // Validate the normalized number
-  const phoneValidation = phoneService.validatePhoneNumber(
+  const phoneValidation = phoneManagementService.validatePhoneNumber(
     normalizedNumber,
     'NG'  // Default to Nigeria since this is a Nigerian USSD service
   );
   
   if (!phoneValidation.isValid) {
+    console.log('Phone validation failed:', phoneValidation);
     return sendUssdResponse(res, 'Invalid phone number format.');
   }
   
-  // Find user by phone number
-  const user = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+  console.log('Phone validation successful:', phoneValidation);
+  
+  // Find user by phone number with improved lookup
+  const user = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
   
   if (!user) {
+    console.log('User not found for phone:', phoneValidation.e164Format);
     return sendUssdResponse(res, 
       'Welcome to CrossBridge. You need to register first.\n' +
       'Please download our app or visit our website to register.'
     );
   }
+  
+  console.log('User found:', {
+    id: user.id,
+    name: `${user.first_name} ${user.last_name}`,
+    phone: user.phone_number
+  });
   
   // Process USSD code and text input
   const ussdResponse = await handleUssdRequest(user, text, session_id);
@@ -539,21 +567,37 @@ const handleMenuNavigation = async (user, text, session, sessionKey) => {
 const handleBalanceCheck = async (user) => {
   try {
     if (!user || !user.id) {
+      console.error('Invalid user object in balance check:', user);
       return {
         message: 'Invalid user session. Please try again.',
         end_session: true
       };
     }
 
-    // Get user wallet
+    console.log('Checking balance for user:', {
+      id: user.id,
+      phone: user.phone_number,
+      name: `${user.first_name} ${user.last_name}`
+    });
+
+    // Get user wallet with improved error handling
     const wallet = await Wallet.findByUserId(user.id);
     
     if (!wallet) {
+      console.error('Wallet not found for user:', user.id);
       return {
         message: 'Wallet not found. Please contact support.',
         end_session: true
       };
     }
+    
+    console.log('Wallet found:', {
+      id: wallet.id,
+      cbusd_balance: wallet.cbusd_balance,
+      balance_ngn: wallet.balance_ngn,
+      balance_gbp: wallet.balance_gbp,
+      balance_usd: wallet.balance_usd
+    });
     
     // Format balance response with null checks
     let balanceMessage = 'CrossBridge Balance:\n';
@@ -572,6 +616,14 @@ const handleBalanceCheck = async (user) => {
       balanceMessage += `${wallet.balance_usd.toFixed(2)} USD\n`;
     }
     
+    // Add last updated info if available
+    if (wallet.updated_at) {
+      const lastUpdated = new Date(wallet.updated_at);
+      balanceMessage += `\nLast updated: ${lastUpdated.toLocaleDateString()}`;
+    }
+    
+    console.log('Balance check successful, returning message');
+    
     return {
       message: balanceMessage,
       end_session: true
@@ -580,6 +632,7 @@ const handleBalanceCheck = async (user) => {
     // Log error with context for debugging
     console.error('Error checking balance via USSD:', {
       userId: user?.id,
+      userPhone: user?.phone_number,
       error: error.message,
       stack: error.stack
     });
@@ -588,6 +641,14 @@ const handleBalanceCheck = async (user) => {
     if (error.message.includes('database') || error.message.includes('connection')) {
       return {
         message: 'Service temporarily unavailable. Please try again in a few minutes.',
+        end_session: true
+      };
+    }
+
+    // Check if it's a wallet model error
+    if (error.message.includes('Wallet') || error.message.includes('findByUserId')) {
+      return {
+        message: 'Unable to access wallet information. Please contact support.',
         end_session: true
       };
     }

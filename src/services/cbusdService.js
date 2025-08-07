@@ -218,6 +218,31 @@ const cbusdService = {
       throw error;
     }
   },
+
+  /**
+   * Health check for CBUSD service
+   * @returns {Object} Health status
+   */
+  healthCheck: async () => {
+    try {
+      // Simulate checking blockchain contract status
+      const mockContractAddress = "0x1234567890123456789012345678901234567890";
+      const mockTotalSupply = Math.floor(Math.random() * 10000000) + 1000000;
+      
+      // In a real implementation, this would query the actual smart contract
+      await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network call
+      
+      return {
+        contract_address: mockContractAddress,
+        total_supply: mockTotalSupply.toLocaleString(),
+        network: 'Polygon Mumbai (Testnet)',
+        status: 'operational',
+        last_block_timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      throw new Error(`CBUSD contract health check failed: ${error.message}`);
+    }
+  }
 };
 
 module.exports = cbusdService; 

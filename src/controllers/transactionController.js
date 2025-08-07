@@ -5,12 +5,16 @@ const Wallet = require('../models/Wallet');
 const { AppError } = require('../middleware/errorHandler');
 const { SUPPORTED_CURRENCIES, ERROR_MESSAGES, HTTP_STATUS, TRANSACTION_LIMITS, getHighValueThreshold, getCurrencyCountryCode } = require('../utils/constants');
 const pricingService = require('../services/pricingService');
-const phoneService = require('../services/phoneService');
+const phoneManagementService = require('../services/phoneManagementService');
 const retryService = require('../services/retryService');
 const securityService = require('../services/securityService');
 const { notifyTransactionUpdate } = require('../utils/websocket');
 const asyncHandler = require('express-async-handler');
-const knex = require('knex')(require('../../knexfile')[process.env.NODE_ENV || 'development']);
+const { db } = require('../utils/database');
+const stripeService = require('../services/stripeService');
+const flutterwaveService = require('../services/flutterwaveService');
+const parallelProcessingService = require('../services/parallelProcessingService');
+const instantSettlementService = require('../services/instantSettlementService');
 
 /**
  * @desc    Get exchange rate quote
@@ -23,9 +27,9 @@ const getQuote = asyncHandler(async (req, res, next) => {
   // If recipient phone is provided, get recipient ID for personalized quote
   let recipientId = null;
   if (recipient_phone && recipient_country_code) {
-    const phoneValidation = phoneService.validatePhoneNumber(recipient_phone, recipient_country_code);
+    const phoneValidation = phoneManagementService.validatePhoneNumber(recipient_phone, recipient_country_code);
     if (phoneValidation.isValid) {
-      const recipient = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+      const recipient = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
       if (recipient) {
         recipientId = recipient.id;
       }
@@ -164,13 +168,13 @@ const sendMoney = asyncHandler(async (req, res, next) => {
   }
   
   // Validate recipient phone number
-  const phoneValidation = phoneService.validatePhoneNumber(recipient_phone, recipient_country_code);
+  const phoneValidation = phoneManagementService.validatePhoneNumber(recipient_phone, recipient_country_code);
   if (!phoneValidation.isValid) {
     return next(new AppError(phoneValidation.message, HTTP_STATUS.BAD_REQUEST));
   }
   
   // Check if recipient exists
-  const recipient = await phoneService.lookupUserByPhone(phoneValidation.e164Format);
+  const recipient = await phoneManagementService.lookupUserByPhone(phoneValidation.e164Format);
   if (!recipient) {
     return next(new AppError('Recipient not found. They need to create a CrossBridge account first.', HTTP_STATUS.NOT_FOUND));
   }
@@ -217,7 +221,7 @@ const sendMoney = asyncHandler(async (req, res, next) => {
   
   try {
     // Use database transaction for atomicity
-    const result = await knex.transaction(async (trx) => {
+    const result = await db.transaction(async (trx) => {
       // This would remove the + in front of the country code
       const senderCountryCode = (req.user.country_code || 'NG').replace('+', '');
       const recipientCountryCode = recipient_country_code.replace('+', '');
@@ -384,12 +388,12 @@ const getTransaction = asyncHandler(async (req, res, next) => {
 });
 
 /**
- * @desc    Initiate Bank-to-App transfer (Real deposit) with Demo CBUSD Settlement
- * @route   POST /api/transactions/bank-to-app
+ * @desc    Enhanced deposit initiation with payment provider integration
+ * @route   POST /api/transactions/deposit/create
  * @access  Private
  */
-const initiateDeposit = asyncHandler(async (req, res, next) => {
-  const { amount, currency } = req.body;
+const createDepositIntent = asyncHandler(async (req, res, next) => {
+  const { amount, currency, payment_method = 'auto' } = req.body;
   const userId = req.user.id;
   
   // Validate inputs
@@ -406,64 +410,161 @@ const initiateDeposit = asyncHandler(async (req, res, next) => {
     return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
   }
 
-  // Generate unique reference code
-  const referenceCode = `CB_DEP_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-  
-  // Generate dedicated bank account for user (mock for now)
-  const bankAccountId = `ACC_${userId.substr(-8)}_${currency}`;
-  
   try {
-    // Check if bank_deposit_references table exists, if not create a simple record
-    let depositRef;
-    try {
-      // Try to create deposit reference record
-      depositRef = await knex('bank_deposit_references').insert({
-        user_id: userId,
-        reference_code: referenceCode,
-        amount: parseFloat(amount),
-        currency: currency.toUpperCase(),
-        bank_account_id: bankAccountId,
-        status: 'pending',
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        created_at: new Date(),
-        updated_at: new Date()
-      }).returning('*');
+    // Import payment services
+    const stripeService = require('../services/stripeService');
+    const flutterwaveService = require('../services/flutterwaveService');
+    const paymentProcessingService = require('../services/paymentProcessingService');
+
+    // Determine payment provider based on currency and region
+    let provider = 'stripe'; // Default
+    let paymentResult;
+
+    switch (currency.toUpperCase()) {
+      case 'NGN':
+        provider = 'flutterwave';
+        paymentResult = await flutterwaveService.createPaymentCharge(
+          amount,
+          currency,
+          {
+            user_reference: userId,
+            customer_email: req.user.email,
+            customer_phone: req.user.phone_number,
+            customer_name: `${req.user.first_name} ${req.user.last_name}`,
+            redirect_url: `${process.env.FRONTEND_URL}/dashboard?deposit=success`
+          }
+        );
+        break;
       
-      depositRef = depositRef[0];
-    } catch (tableError) {
-      console.log('bank_deposit_references table may not exist, creating simple reference');
-      // If table doesn't exist, create a simple object
-      depositRef = {
-        user_id: userId,
-        reference_code: referenceCode,
-        amount: parseFloat(amount),
-        currency: currency.toUpperCase(),
-        bank_account_id: bankAccountId,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      };
+      case 'USD':
+      case 'GBP':
+      case 'EUR':
+        provider = 'stripe';
+        paymentResult = await stripeService.createPaymentIntent(
+          amount * 100, // Convert to cents
+          currency,
+          {
+            user_reference: userId,
+            phone_number: req.user.phone_number,
+            customer_email: req.user.email,
+            demo: process.env.NODE_ENV === 'development' ? 'true' : 'false'
+          }
+        );
+        break;
+      
+      default:
+        return next(new AppError(`Currency ${currency} not supported for direct deposits`, 400));
     }
 
-    console.log('Deposit reference created, starting CBUSD settlement...');
+    // Extract payment data based on provider response structure
+    let paymentData, externalReference, paymentUrl;
+    
+    if (provider === 'flutterwave') {
+      // Flutterwave returns: { success: true, data: { tx_ref, link, ... } }
+      paymentData = paymentResult.data;
+      externalReference = paymentData.tx_ref;
+      paymentUrl = paymentData.link;
+    } else {
+      // Stripe returns: { success: true, payment_intent: { id, client_secret, ... } }
+      paymentData = paymentResult.payment_intent;
+      externalReference = paymentData.id;
+      paymentUrl = `https://checkout.stripe.com/pay/${paymentData.client_secret}`;
+    }
 
-    // DEMO: Automatically settle CBUSD for testing purposes
-    await demoSettleCBUSD(userId, parseFloat(amount), currency.toUpperCase(), referenceCode, req.user);
+    // Create pending transaction record
+    const transactionData = {
+      sender_id: null, // External payment
+      recipient_id: userId,
+      amount: amount,
+      source_currency: currency.toUpperCase(),
+      target_currency: 'CBUSD',
+      transaction_type: 'deposit',
+      status: 'pending',
+      provider: provider,
+      external_reference: externalReference,
+      fee: 0, // No fee for deposits
+      metadata: JSON.stringify({
+        payment_intent: paymentData,
+        provider: provider,
+        currency: currency.toUpperCase()
+      })
+    };
 
-    console.log('CBUSD settlement completed');
+    const transaction = await transactionService.createTransaction(transactionData);
 
-    // Return deposit instructions to user
+    // Return payment instructions
+    res.status(201).json({
+      success: true,
+      message: 'Deposit payment intent created successfully',
+      data: {
+        transaction_id: transaction.id,
+        provider: provider,
+        payment_url: paymentUrl,
+        amount: amount,
+        currency: currency.toUpperCase(),
+        reference: externalReference,
+        instructions: provider === 'flutterwave' 
+          ? 'Complete payment using the Flutterwave checkout link'
+          : 'Complete payment using the Stripe payment intent'
+      }
+    });
+
+  } catch (error) {
+    console.error('Enhanced deposit creation error:', error);
+    return next(new AppError('Failed to create deposit payment: ' + error.message, 500));
+  }
+});
+
+/**
+ * @desc    Initiate Bank-to-App transfer (Real deposit) with Demo CBUSD Settlement
+ * @route   POST /api/transactions/bank-to-app
+ * @access  Private
+ */
+const initiateDeposit = asyncHandler(async (req, res, next) => {
+  const { amount, currency, metadata = {} } = req.body;
+  const userId = req.user.id;
+  
+  // Validate inputs
+  if (!amount || amount <= 0) {
+    return next(new AppError('Valid amount is required', HTTP_STATUS.BAD_REQUEST));
+  }
+  
+  if (!currency) {
+    return next(new AppError('Currency is required', HTTP_STATUS.BAD_REQUEST));
+  }
+  
+  // Validate currency
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
+  }
+
+  try {
+    // Check if amount qualifies for instant settlement
+    const isInstantEligible = await instantSettlementService.isEligibleForInstantDeposit(
+      amount, currency, userId
+    );
+
+    let result;
+    if (isInstantEligible.eligible) {
+      console.log(`💨 Processing instant deposit for user ${userId}, amount: ${amount} ${currency}`);
+      result = await instantSettlementService.processInstantDeposit(
+        userId, amount, currency, metadata
+      );
+    } else {
+      console.log(`⚡ Processing regular deposit for user ${userId}, amount: ${amount} ${currency}`);
+      console.log(`   Reason: ${isInstantEligible.reason}`);
+      result = await parallelProcessingService.processDepositWithPreMinting({
+        userId, 
+        amount, 
+        currency, 
+        metadata
+      });
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Deposit initiated. Please complete bank transfer with the provided details.',
-      demo_notice: 'DEMO MODE: CBUSD has been automatically credited to your wallet for testing',
-      deposit_instructions: {
-        amount: parseFloat(amount),
-        currency: currency.toUpperCase(),
-        bank_account: bankAccountId,
-        reference_code: referenceCode,
-        bank_name: 'CrossBridge Settlement Account',
-        instructions: `Transfer ${currency.toUpperCase()} ${amount} to account ${bankAccountId} with reference: ${referenceCode}`,
-        expires_at: depositRef.expires_at
-      }
+      message: result.instant ? 'Instant deposit completed' : 'Deposit initiated with parallel processing',
+      data: result
     });
   } catch (error) {
     console.error('Deposit initiation error:', error);
@@ -574,7 +675,7 @@ const performCBUSDSettlement = async (userId, amount, currency, cbusdAmount, ref
   console.log('Transaction created with ID:', settlementTransaction.id);
 
   // Now handle the wallet update and completion in a separate transaction
-  await knex.transaction(async (trx) => {
+  await db.transaction(async (trx) => {
     console.log('Inside database transaction for wallet update');
     
     // Credit CBUSD to user's wallet
@@ -631,6 +732,174 @@ const convertToCBUSD = async (amount, currency) => {
 };
 
 /**
+ * @desc    Enhanced withdrawal with payment provider integration
+ * @route   POST /api/transactions/withdrawal/create
+ * @access  Private
+ */
+const createWithdrawalIntent = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const { 
+    amount, 
+    currency, 
+    bank_account_number, 
+    bank_code,
+    bank_name, 
+    account_holder_name,
+    two_factor_code,
+    transaction_pin
+  } = req.body;
+
+  // Validate currency
+  if (!SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+    return next(new AppError(ERROR_MESSAGES.INVALID_CURRENCY, HTTP_STATUS.BAD_REQUEST));
+  }
+
+  try {
+    // Enhanced security validation
+    const securityAssessment = await securityService.assessTransactionRisk({
+      amount: parseFloat(amount),
+      currency: currency.toUpperCase(),
+      transaction_type: 'withdrawal',
+      sender_id: userId
+    }, {
+      device_id: req.headers['x-device-id'],
+      ip_address: req.ip,
+      device_trust_level: 'medium' // This would come from device fingerprinting
+    });
+
+    // Validate transaction PIN using security service
+    const pinValidation = await securityService.validateTransactionPin(userId, transaction_pin);
+    if (!pinValidation.valid) {
+      return next(new AppError(pinValidation.error || ERROR_MESSAGES.INVALID_PIN, HTTP_STATUS.BAD_REQUEST));
+    }
+
+    // Check if additional security is required
+    if (securityAssessment.requiresAdditionalAuth && !two_factor_code) {
+      return next(new AppError('Two-factor authentication required for this withdrawal', 400));
+    }
+
+    if (two_factor_code) {
+      const twoFactorValid = await securityService.verifyTwoFactorCode(userId, two_factor_code);
+      if (!twoFactorValid.valid) {
+        return next(new AppError('Invalid two-factor authentication code', 400));
+      }
+    }
+
+    // Get wallet and check balance
+    const wallet = await Wallet.findByUserId(userId);
+    if (!wallet) {
+      return next(new AppError(ERROR_MESSAGES.WALLET_NOT_FOUND, HTTP_STATUS.NOT_FOUND));
+    }
+
+    // Calculate CBUSD equivalent needed
+    const cbusdRate = await getCBUSDRate(currency);
+    const feeAmount = parseFloat(amount) * 0.004; // 0.4% fee
+    const totalAmount = parseFloat(amount) + feeAmount;
+    const cbusdRequired = totalAmount / cbusdRate;
+
+    // Check CBUSD balance
+    if (wallet.cbusd_balance < cbusdRequired) {
+      return next(new AppError(ERROR_MESSAGES.INSUFFICIENT_BALANCE, HTTP_STATUS.BAD_REQUEST));
+    }
+
+    // Import payment services
+    const stripeService = require('../services/stripeService');
+    const flutterwaveService = require('../services/flutterwaveService');
+
+    // Determine payment provider and process withdrawal
+    let provider = 'stripe';
+    let withdrawalResult;
+
+    switch (currency.toUpperCase()) {
+      case 'NGN':
+        provider = 'flutterwave';
+        withdrawalResult = await flutterwaveService.processWithdrawal({
+          account_bank: bank_code,
+          account_number: bank_account_number,
+          amount: parseFloat(amount),
+          narration: `CrossBridge withdrawal to ${account_holder_name}`,
+          currency: currency.toUpperCase(),
+          beneficiary_name: account_holder_name,
+          user_id: userId,
+          reference: `CB-WITH-${Date.now().toString().slice(-6)}`
+        });
+        break;
+      
+      case 'USD':
+      case 'GBP':
+        provider = 'stripe';
+        withdrawalResult = await stripeService.processWithdrawal({
+          amount: parseFloat(amount) * 100, // Convert to cents
+          currency: currency.toLowerCase(),
+          bank_account: {
+            account_number: bank_account_number,
+            routing_number: bank_code,
+            account_holder_name: account_holder_name
+          },
+          user_id: userId,
+          metadata: {
+            user_id: userId,
+            withdrawal_type: 'bank_transfer'
+          }
+        });
+        break;
+      
+      default:
+        return next(new AppError(`Currency ${currency} not supported for withdrawals`, 400));
+    }
+
+    // Debit CBUSD balance immediately
+    await db('wallets')
+      .where('user_id', userId)
+      .decrement('cbusd_balance', cbusdRequired)
+      .update({ updated_at: new Date() });
+
+    // Create withdrawal transaction record
+    const transactionData = {
+      sender_id: userId,
+      recipient_id: null, // Bank withdrawal
+      amount: parseFloat(amount),
+      source_currency: 'CBUSD',
+      target_currency: currency.toUpperCase(),
+      transaction_type: 'withdrawal',
+      status: withdrawalResult.success ? 'processing' : 'failed',
+      provider: provider,
+      external_reference: withdrawalResult.transfer_id || withdrawalResult.transaction_id,
+      metadata: JSON.stringify({
+        withdrawal_data: withdrawalResult,
+        bank_account: {
+          account_number: bank_account_number,
+          bank_name: bank_name,
+          account_holder_name: account_holder_name
+        },
+        provider: provider,
+        risk_assessment: securityAssessment
+      })
+    };
+
+    const transaction = await transactionService.createTransaction(transactionData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Withdrawal initiated successfully',
+      data: {
+        transaction_id: transaction.id,
+        provider: provider,
+        amount: parseFloat(amount),
+        currency: currency.toUpperCase(),
+        status: withdrawalResult.success ? 'processing' : 'failed',
+        reference: withdrawalResult.transfer_id || withdrawalResult.transaction_id,
+        estimated_completion: provider === 'flutterwave' ? '2-5 minutes' : '1-3 business days'
+      }
+    });
+
+  } catch (error) {
+    console.error('Enhanced withdrawal creation error:', error);
+    return next(new AppError('Failed to create withdrawal: ' + error.message, 500));
+  }
+});
+
+/**
  * @desc    Initiate App-to-Bank transfer (Real withdrawal)
  * @route   POST /api/transactions/app-to-bank
  * @access  Private
@@ -644,7 +913,8 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
     bank_name, 
     account_holder_name,
     two_factor_code,
-    transaction_pin
+    transaction_pin,
+    metadata = {}
   } = req.body;
 
   // Validate currency
@@ -656,23 +926,6 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
   const pinValidation = await securityService.validateTransactionPin(userId, transaction_pin);
   if (!pinValidation.valid) {
     return next(new AppError(pinValidation.error || ERROR_MESSAGES.INVALID_PIN, HTTP_STATUS.BAD_REQUEST));
-  }
-
-  // Get wallet and check balance
-  const wallet = await Wallet.findByUserId(userId);
-  if (!wallet) {
-    return next(new AppError(ERROR_MESSAGES.WALLET_NOT_FOUND, HTTP_STATUS.NOT_FOUND));
-  }
-
-  // Calculate CBUSD equivalent needed
-  const cbusdRate = await getCBUSDRate(currency);
-  const feeAmount = parseFloat(amount) * 0.004; // 0.4% fee
-  const totalAmount = parseFloat(amount) + feeAmount;
-  const cbusdRequired = totalAmount / cbusdRate;
-
-  // Check CBUSD balance
-  if (wallet.cbusd_balance < cbusdRequired) {
-    return next(new AppError(ERROR_MESSAGES.INSUFFICIENT_BALANCE, HTTP_STATUS.BAD_REQUEST));
   }
 
   // Get security requirements for this transaction
@@ -691,60 +944,48 @@ const initiateWithdrawal = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    // Start transaction
-    const result = await knex.transaction(async (trx) => {
-      // Burn CBUSD immediately (irreversible)
-      await trx('wallets')
-        .where({ id: wallet.id })
-        .decrement('cbusd_balance', cbusdRequired);
+    // Enhanced metadata with bank details
+    const fullMetadata = {
+      ...metadata,
+      bank_account_number,
+      bank_name,
+      account_holder_name
+    };
 
-      // Create withdrawal transaction
-      const transaction = await transactionService.createTransaction({
-        sender_id: userId,
-        recipient_id: null, // Bank withdrawal has no recipient
-        sender_phone: req.user.phone_number,
-        recipient_phone: null,
-        sender_country_code: req.user.country_code || 'NG',
-        recipient_country_code: getCurrencyCountryCode(currency) || null,
-        amount: parseFloat(amount),
-        source_currency: 'CBUSD',
-        target_currency: currency.toUpperCase(),
-        currency_from: 'CBUSD',
-        currency_to: currency.toUpperCase(),
-        exchange_rate: cbusdRate,
-        fee: feeAmount,
-        transaction_type: 'withdrawal',
-        metadata: {
-          bank_account_number,
-          bank_name,
-          account_holder_name,
-          conversion_type: 'cbusd_to_bank',
-          cbusd_burned: cbusdRequired,
-          high_value: parseFloat(amount) > getHighValueThreshold(currency.toUpperCase()),
-          transfer_type: `cbusd_to_${currency.toLowerCase()}`
-        }
+    // Check if amount qualifies for instant settlement
+    const isInstantEligible = await instantSettlementService.isEligibleForInstantWithdrawal(
+      amount, currency, userId
+    );
+
+    let result;
+    if (isInstantEligible.eligible) {
+      console.log(`💨 Processing instant withdrawal for user ${userId}, amount: ${amount} ${currency}`);
+      result = await instantSettlementService.processInstantWithdrawal(
+        userId, amount, currency, fullMetadata
+      );
+    } else {
+      console.log(`⚡ Processing regular withdrawal for user ${userId}, amount: ${amount} ${currency}`);
+      console.log(`   Reason: ${isInstantEligible.reason}`);
+      result = await parallelProcessingService.processWithdrawalWithPreBurn({
+        userId, 
+        amount, 
+        currency, 
+        bankDetails: fullMetadata
       });
-
-      return transaction;
-    });
-
-    // Start background processing
-    processWithdrawalToBank(result).catch(err => {
-      console.error('Background withdrawal processing error:', err);
-    });
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Withdrawal initiated and being processed',
+      message: result.instant ? 'Instant withdrawal completed' : 'Withdrawal initiated with parallel processing',
       transaction: {
         id: result.id,
         amount: result.amount,
-        currency: result.target_currency,
+        currency: result.currency,
         status: result.status,
         created_at: result.created_at,
-        reference: result.reference_id,
-        estimated_completion: '2-5 minutes'
-      },
+        reference: result.reference,
+        estimated_completion: result.instant ? 'Completed' : '30-90 seconds'
+      }
     });
   } catch (error) {
     console.error('Withdrawal initiation error:', error);
@@ -788,7 +1029,7 @@ const processWithdrawalToBank = async (transaction) => {
     } else {
       // Refund CBUSD if bank transfer failed
       const wallet = await Wallet.findByUserId(transaction.sender_id);
-      await knex('wallets')
+      await db('wallets')
         .where({ id: wallet.id })
         .increment('cbusd_balance', metadata.cbusd_burned);
 
@@ -802,7 +1043,7 @@ const processWithdrawalToBank = async (transaction) => {
       ? JSON.parse(transaction.metadata) 
       : transaction.metadata;
     const wallet = await Wallet.findByUserId(transaction.sender_id);
-    await knex('wallets')
+    await db('wallets')
       .where({ id: wallet.id })
       .increment('cbusd_balance', metadata.cbusd_burned);
 
@@ -951,6 +1192,26 @@ const retryTransaction = asyncHandler(async (req, res, next) => {
   }
 });
 
+/**
+ * @desc    Transfer from bank to app (legacy method for backward compatibility)
+ * @route   POST /api/transactions/bank-to-app
+ * @access  Private
+ */
+const transferFromBank = asyncHandler(async (req, res, next) => {
+  // This is the legacy method that maps to the new deposit flow
+  return createDepositIntent(req, res, next);
+});
+
+/**
+ * @desc    Transfer to bank from app (legacy method for backward compatibility)
+ * @route   POST /api/transactions/app-to-bank
+ * @access  Private
+ */
+const transferToBank = asyncHandler(async (req, res, next) => {
+  // This is the legacy method that maps to the new withdrawal flow
+  return createWithdrawalIntent(req, res, next);
+});
+
 // Export all functions
 module.exports = {
   getQuote,
@@ -959,6 +1220,10 @@ module.exports = {
   sendMoney,
   getTransactionHistory,
   getTransaction,
+  createDepositIntent,
+  createWithdrawalIntent,
+  transferFromBank,
+  transferToBank,
   initiateDeposit,
   initiateWithdrawal,
   cancelTransaction,
