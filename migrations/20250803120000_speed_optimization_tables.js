@@ -22,6 +22,80 @@ exports.up = async function(knex) {
     table.unique(['currency']);
     table.index(['currency', 'is_active']);
   });
+
+    // Initialize default liquidity pools with schema matching the created table
+    await knex('liquidity_pools').insert([
+      {
+        id: knex.raw('gen_random_uuid()'),
+        currency: 'USD',
+        available_amount: 50000.00,
+        total_capacity: 100000.00,
+        min_threshold: 5000.00,
+        max_threshold: 10000.00,
+        settings: JSON.stringify({
+          instant_deposit_limit: 1000,
+          instant_withdrawal_limit: 500,
+          refill_threshold: 0.2
+        })
+      },
+      {
+        id: knex.raw('gen_random_uuid()'),
+        currency: 'NGN',
+        available_amount: 75000000.00,
+        total_capacity: 150000000.00,
+        min_threshold: 7500000.00,
+        max_threshold: 15000000.00,
+        settings: JSON.stringify({
+          instant_deposit_limit: 1500000,
+          instant_withdrawal_limit: 750000,
+          refill_threshold: 0.2
+        })
+      },
+      {
+        id: knex.raw('gen_random_uuid()'),
+        currency: 'GBP',
+        available_amount: 40000.00,
+        total_capacity: 80000.00,
+        min_threshold: 4000.00,
+        max_threshold: 8000.00,
+        settings: JSON.stringify({
+          instant_deposit_limit: 800,
+          instant_withdrawal_limit: 400,
+          refill_threshold: 0.2
+        })
+      }
+    ]);
+  } else {
+    // Table exists from initial schema, use existing column names
+    const existingRows = await knex('liquidity_pools').count('* as count');
+    if (existingRows[0].count === 0) {
+      await knex('liquidity_pools').insert([
+        {
+          id: knex.raw('gen_random_uuid()'),
+          currency: 'USD',
+          target_balance: 100000.00,
+          current_balance: 50000.00,
+          min_threshold: 5000.00,
+          max_threshold: 10000.00
+        },
+        {
+          id: knex.raw('gen_random_uuid()'),
+          currency: 'NGN', 
+          target_balance: 150000000.00,
+          current_balance: 75000000.00,
+          min_threshold: 7500000.00,
+          max_threshold: 15000000.00
+        },
+        {
+          id: knex.raw('gen_random_uuid()'),
+          currency: 'GBP',
+          target_balance: 80000.00,
+          current_balance: 40000.00,
+          min_threshold: 4000.00,
+          max_threshold: 8000.00
+        }
+      ]);
+    }
   }
 
   // Instant settlement transactions tracking
@@ -118,46 +192,6 @@ exports.up = async function(knex) {
     table.index(['user_id', 'transaction_type']);
     table.index(['calculation_date']);
   });
-
-  // Initialize default liquidity pools
-  await knex('liquidity_pools').insert([
-    {
-      currency: 'USD',
-      available_amount: 50000.00,
-      total_capacity: 100000.00,
-      min_threshold: 5000.00,
-      max_threshold: 10000.00,
-      settings: JSON.stringify({
-        instant_deposit_limit: 1000,
-        instant_withdrawal_limit: 500,
-        refill_threshold: 0.2
-      })
-    },
-    {
-      currency: 'NGN',
-      available_amount: 75000000.00,
-      total_capacity: 150000000.00,
-      min_threshold: 7500000.00,
-      max_threshold: 15000000.00,
-      settings: JSON.stringify({
-        instant_deposit_limit: 1500000,
-        instant_withdrawal_limit: 750000,
-        refill_threshold: 0.2
-      })
-    },
-    {
-      currency: 'GBP',
-      available_amount: 40000.00,
-      total_capacity: 80000.00,
-      min_threshold: 4000.00,
-      max_threshold: 8000.00,
-      settings: JSON.stringify({
-        instant_deposit_limit: 800,
-        instant_withdrawal_limit: 400,
-        refill_threshold: 0.2
-      })
-    }
-  ]);
 };
 
 exports.down = async function(knex) {
