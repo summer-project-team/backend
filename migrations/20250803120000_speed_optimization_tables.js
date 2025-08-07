@@ -44,6 +44,7 @@ exports.up = async function(knex) {
     table.index(['currency', 'type']);
     table.index(['background_status']);
   });
+  }
 
   // Parallel processing tasks tracking
   await knex.schema.createTable('parallel_processing_tasks', function(table) {
@@ -166,6 +167,4 @@ exports.down = async function(knex) {
   await knex.schema.dropTableIfExists('parallel_processing_tasks');
   await knex.schema.dropTableIfExists('instant_settlements');
   await knex.schema.dropTableIfExists('liquidity_pools');
-}
-;
-}
+};
