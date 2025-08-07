@@ -10,7 +10,7 @@ exports.up = function(knex) {
       if (!exists) {
         return knex.schema.createTable('user_devices', function(table) {
           table.increments('id').primary();
-          table.integer('user_id').unsigned().notNullable();
+          table.uuid('user_id').notNullable();
           table.string('fingerprint_hash', 64).notNullable();
           table.string('device_name', 100);
           table.text('user_agent');
@@ -63,7 +63,7 @@ exports.up = function(knex) {
       if (!exists) {
         return knex.schema.createTable('security_events', function(table) {
           table.increments('id').primary();
-          table.integer('user_id').unsigned();
+          table.uuid('user_id');
           table.string('event_type', 50).notNullable();
           table.json('metadata');
           table.string('ip_address', 45);
@@ -83,7 +83,7 @@ exports.up = function(knex) {
       if (!exists) {
         return knex.schema.createTable('api_keys', function(table) {
       table.increments('id').primary();
-      table.integer('user_id').unsigned();
+      table.uuid('user_id');
       table.string('key_hash', 64).notNullable().unique();
       table.string('name', 100).notNullable();
       table.json('permissions').defaultTo('[]');
@@ -107,7 +107,7 @@ exports.up = function(knex) {
       if (!exists) {
         return knex.schema.createTable('user_locations', function(table) {
           table.increments('id').primary();
-          table.integer('user_id').unsigned().notNullable();
+          table.uuid('user_id').notNullable();
           table.decimal('latitude', 10, 8);
           table.decimal('longitude', 11, 8);
           table.string('country', 2);
@@ -144,8 +144,8 @@ exports.up = function(knex) {
       if (!exists) {
         return knex.schema.createTable('transaction_risk_assessments', function(table) {
           table.increments('id').primary();
-          table.integer('transaction_id').unsigned();
-          table.integer('user_id').unsigned().notNullable();
+          table.uuid('transaction_id');
+          table.uuid('user_id').notNullable();
           table.string('risk_level', 20).notNullable();
           table.integer('risk_score').notNullable();
           table.json('risk_factors').defaultTo('[]');
