@@ -287,7 +287,7 @@ const schemas = {
       'string.pattern.base': 'PIN must be exactly 4 digits',
       'string.length': 'PIN must be exactly 4 digits'
     }),
-    confirm_pin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('pin')).messages({
+    confirmPin: Joi.string().required().length(4).pattern(/^\d{4}$/).valid(Joi.ref('pin')).messages({
       'string.pattern.base': 'PIN confirmation must be exactly 4 digits',
       'string.length': 'PIN confirmation must be exactly 4 digits',
       'any.only': 'PIN confirmation must match PIN'

@@ -20,6 +20,11 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Public info route
+router.get('/', (req, res) => {
+  res.send('SecureRemit User API - All user routes are protected. For documentation, visit /docs');
+});
+
 // All routes are protected
 router.use(protect);
 

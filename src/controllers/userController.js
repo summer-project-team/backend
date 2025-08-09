@@ -515,33 +515,6 @@ const changeTransactionPin = asyncHandler(async (req, res, next) => {
     message: 'Transaction PIN changed successfully'
   });
 
-/**
- * @desc    Set transaction PIN
- * @route   POST /api/users/pin/setup
- * @access  Private
- */
-const setupTransactionPin = asyncHandler(async (req, res, next) => {
-  const userId = req.user.id;
-  // Updated to use snake_case field names to match validation schema
-  const { pin, confirm_pin } = req.body;
-  
-  // Validate PIN
-  if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-    return next(new AppError('PIN must be exactly 4 digits', 400));
-  }
-  
-  if (pin !== confirm_pin) {
-    return next(new AppError('PIN confirmation does not match', 400));
-  }
-  
-  // Set the PIN
-  await User.setTransactionPin(userId, pin);
-  
-  res.status(200).json({
-    success: true,
-    message: 'Transaction PIN set successfully'
-  });
-});
 });
 
 /**
